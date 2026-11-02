@@ -496,18 +496,22 @@
   // ---- Live round control. dashboard.html writes bandit_settings/session; class links (?class=1) follow it. ----
   const SETTINGS_DOC='bandit_settings/session';
   function applyLive(){const l=state.live;if(!l)return;if(l.sessionKey)state.seed=String(l.sessionKey).slice(0,80);state.round=getRound(l.round);state.gamma=getGamma(l.gamma);state.trials=getTrials(l.trials);state.mode=getMode(l.mode);state.payoff=normPayoff(l.payoffs||PAYOFF_DEFAULT);}
-  const startBlocked=()=>!!(state.live&&state.live.open===false);
+  const startBlocked=()=>!!(state.live&&(state.live.open===false||(maxTries()&&(()=>{const l=state.live;const seedNow=l.sessionKey?String(l.sessionKey).slice(0,80):state.seed;let used=0;try{used=Number(localStorage.getItem('idlab.tries.'+(getRound(l.round)>0?seedNow+'#R'+getRound(l.round):seedNow))||0);}catch(e){}return used>=maxTries();})())));
   function liveStatus(){
     const l=state.live;if(!l)return '';
     const open=l.open!==false,r=getRound(l.round)||1;
-    return `<div class="dash-status ${open?'':'pending'}" style="margin:0 0 16px"><span>${open?`<strong>Round ${r} is open.</strong> ${getTrials(l.trials)} tests. Enter your name and start when ready.`:`<strong>Round ${r} is closed.</strong> Wait for your instructor to open the next round. This page updates by itself.`}</span></div>`;
+    const mt=maxTries();const used=(()=>{const seedNow=l.sessionKey?String(l.sessionKey).slice(0,80):state.seed;try{return Number(localStorage.getItem('idlab.tries.'+(r>0?seedNow+'#R'+r:seedNow))||0);}catch(e){return 0;}})();
+    const tries=mt?(used>=mt?` You have used all ${mt} ${mt===1?'try':'tries'} for this round.`:` Try ${used+1} of ${mt}.`):(used?` This will be try ${used+1}.`:'');
+    return `<div class="dash-status ${open?'':'pending'}" style="margin:0 0 16px"><span>${open?`<strong>Round ${r} is open.</strong> ${getTrials(l.trials)} tests.${tries} Enter your name and start when ready.`:`<strong>Round ${r} is closed.</strong> Wait for your instructor to open the next round. This page updates by itself.`}</span></div>`;
   }
   function replayButton(){
     const l=state.live;
     if(!l)return '<button type="button" class="primary-btn" data-action="replay">Play again <span aria-hidden="true">&rarr;</span></button>';
     if(l.open===false)return '<button type="button" class="primary-btn" disabled>Waiting for the instructor to open the next round</button>';
     const r=getRound(l.round);
-    return `<button type="button" class="primary-btn" data-action="replay">${r&&r!==state.round?'Start round '+r:'Play again'} <span aria-hidden="true">&rarr;</span></button>`;
+    if(r===state.round&&maxTries()&&triesUsed()>=maxTries())return `<button type="button" class="primary-btn" disabled>All ${maxTries()} ${maxTries()===1?'try':'tries'} used for round ${r}</button>`;
+    const label=r&&r!==state.round?'Start round '+r:'Play again'+(maxTries()?' (try '+(triesUsed()+1)+' of '+maxTries()+')':' (try '+(triesUsed()+1)+')');
+    return `<button type="button" class="primary-btn" data-action="replay">${label} <span aria-hidden="true">&rarr;</span></button>`;
   }
   function subscribeLive(){
     if(!state.classroom)return;const db=labFirestore();if(!db)return;
@@ -528,7 +532,7 @@
   }
   function toast(msg){toastNode.textContent=msg;toastNode.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toastNode.classList.remove('show'),3200);}
   const brand=()=>`<a class="brand" href="#" data-action="go-home" aria-label="Innovation Lab home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span><span class="brand-name">INNOVATION LAB</span><br><span class="brand-sub">EXPLORE / IDENTIFY</span></span></a>`;
-  const header=()=>`<header>${brand()}<div class="header-right"><span class="header-kicker">${state.round?'ROUND '+state.round+' · ':''}INTERACTIVE INNOVATION SIMULATION</span>${state.classroom?'':'<button type="button" class="ghost-btn" data-action="teacher">Instructor setup</button>'}</div></header>`;
+  const header=()=>`<header>${brand()}<div class="header-right"><span class="header-kicker">${state.round?'ROUND '+state.round+' · ':''}${state.screen!=='home'&&state.attempt>1?'TRY '+state.attempt+' · ':''}INTERACTIVE INNOVATION SIMULATION</span>${state.classroom?'':'<button type="button" class="ghost-btn" data-action="teacher">Instructor setup</button>'}</div></header>`;
   const footer=()=>`<footer><span>Explore / Identify · A best-arm identification experiment</span><span>No account needed. Results go to your instructor's class dashboard.</span></footer>`;
   function home(){
     return `<main><section class="hero">
@@ -692,9 +696,14 @@
     state.actions.push({round,arm:a,reward:payoff,pullIndex:x.n+1,estimatedBefore:x.avg,benchmarkBefore:knownBest,meansBefore,observedGapBefore,exploratory,explorationWeight,runningTotal:totalPayoff()+payoff});
     state.phase='feedback';render();document.querySelector('.feedback')?.scrollIntoView({behavior:'smooth',block:'nearest'});
   }
-  function start(){if(startBlocked())return;applyLive();state.runId=newRunId();state.screen='game';state.phase='playing';state.actions=[];state.pendingArm=null;state.selectedGuess=null;state.finalGuess=null;state.means=currentMeans();render(true);}
+  // Tries per round: counted in this browser per session key + round, so a reload does not reset the count.
+  const triesKey=()=>'idlab.tries.'+roundSeed();
+  const triesUsed=()=>{try{return Number(localStorage.getItem(triesKey())||0);}catch(e){return 0;}};
+  const maxTries=()=>state.live?Math.max(0,Math.round(Number(state.live.maxTries)||0)):0; // 0 = unlimited
+  const triesLeft=()=>maxTries()?Math.max(0,maxTries()-triesUsed()):Infinity;
+  function start(){if(startBlocked())return;applyLive();if(maxTries()&&triesUsed()>=maxTries()){render();return;}state.attempt=triesUsed()+1;try{localStorage.setItem(triesKey(),String(state.attempt));}catch(e){}state.runId=newRunId();state.screen='game';state.phase='playing';state.actions=[];state.pendingArm=null;state.selectedGuess=null;state.finalGuess=null;state.means=currentMeans();render(true);}
   function next(){if(state.screen!=='game'||state.phase!=='feedback')return;if(state.actions.length>=state.trials){state.screen='final';render(true);return;}state.phase='playing';render();document.querySelector('.arms-grid')?.scrollIntoView({behavior:'instant',block:'start'});}
-  function replay(newDraw=false){if(newDraw){state.seed='LAB-'+Math.random().toString(36).slice(2,10).toUpperCase();}state.attempt+=1;state.submitStatus='idle';state.submitError='';start();}
+  function replay(newDraw=false){if(newDraw){state.seed='LAB-'+Math.random().toString(36).slice(2,10).toUpperCase();}state.submitStatus='idle';state.submitError='';start();}
   function applyTeacher(){
     const key=state.draftSeed.trim();if(!key){toast('Enter a session key');return;}
     if(state.actions.length>0&&state.screen!=='home'&&!window.confirm('Changing settings will reset your current experiment. Continue?'))return;

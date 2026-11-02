@@ -110,13 +110,14 @@
 
 <div class="wrap">
   <section class="card control" id="controlBar">
-    <div class="section-row" style="margin-bottom:12px"><div><h2>Round control</h2><div class="subtle" id="controlSub">Students on the class link follow these settings live. Open a round to let them start; close it to stop new games. γ runs from 4 to 40: below 4 the starting trap (best technology never leads at the start) cannot be produced.</div></div><span class="roundstate" id="roundState"></span></div>
+    <div class="section-row" style="margin-bottom:12px"><div><h2>Round control</h2><div class="subtle" id="controlSub">Students on the class link follow these settings live. Open a round to let them start; close it to stop new games. Tries per student lets a student play the round again; every try is recorded and the charts show all tries unless First try only is ticked. γ runs from 4 to 40: below 4 the starting trap cannot be produced.</div></div><span class="roundstate" id="roundState"></span></div>
     <div class="fields">
       <div class="field"><label for="ctlSeed">Session key</label><input type="text" id="ctlSeed" maxlength="80" style="width:200px" value="SNU-INNOVATION-2026"></div>
       <div class="field"><label for="ctlRound">Round</label><input type="number" id="ctlRound" min="1" max="99" step="1" value="1" style="width:80px"></div>
       <div class="field"><label for="ctlGammaRange">Noise ±γ</label><div class="gamma"><input type="range" id="ctlGammaRange" min="4" max="40" step="0.5" value="12"><input type="number" id="ctlGamma" min="4" max="40" step="0.5" value="12" style="width:80px"></div></div>
       <div class="field"><label for="ctlTrials">Tests per game</label><input type="number" id="ctlTrials" min="5" max="60" step="1" value="20" style="width:90px"></div>
       <div class="field"><label for="ctlMode">Letters</label><select id="ctlMode"><option value="student">shuffled per student</option><option value="shared">same for everyone</option></select></div>
+      <div class="field"><label for="ctlTries">Tries per student</label><select id="ctlTries"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="5">5</option><option value="0" selected>unlimited</option></select></div>
     </div>
     <div class="fields" style="margin-top:12px">
       <div class="field"><label>True payoffs · best mean, min–max</label><div class="gamma"><input type="number" id="ctlTopMin" min="20" max="100" step="1" value="92" style="width:72px"> – <input type="number" id="ctlTopMax" min="20" max="100" step="1" value="100" style="width:72px"></div></div>
@@ -135,7 +136,7 @@
   <main>
     <div class="tabs" id="roundTabs"></div>
     <div class="kpis">
-      <div class="kpi"><div class="k">Students</div><div class="v" id="kN">0</div><div class="s" id="kNs">no results yet</div></div>
+      <div class="kpi"><div class="k">Games</div><div class="v" id="kN">0</div><div class="s" id="kNs">no results yet</div></div>
       <div class="kpi good"><div class="k">Found the best</div><div class="v" id="kRate">–</div><div class="s" id="kRateS"></div></div>
       <div class="kpi"><div class="k">Median τ̂ · found vs missed</div><div class="v" id="kTau">–</div><div class="s" id="kTauS"></div></div>
       <div class="kpi"><div class="k">τ separates outcomes</div><div class="v" id="kAuc">–</div><div class="s" id="kAucS"></div></div>
@@ -151,7 +152,7 @@
       <div class="controls">
         <div class="seg" id="measureSeg"><button data-m="hat" class="on">Softmax τ̂</button><button data-m="b">Binary τb</button><button data-m="w">Weighted τw</button></div>
         <label class="inline">Bins <input type="number" id="binsInput" min="3" max="20" value="8" style="width:64px"></label>
-        <label class="inline"><input type="checkbox" id="firstOnly" checked> First attempt per student and round</label>
+        <label class="inline"><input type="checkbox" id="firstOnly"> First try per student only</label>
       </div>
       <div class="chart-box"><canvas id="rateChart"></canvas></div>
       <div class="legend"><span><i class="bar"></i>Students who found the best (per bin)</span><span><i style="background:var(--teal)"></i>One student who found the best</span><span><i style="background:#fff;border:2px solid var(--teal)"></i>Hollow: τ̂ at the grid bound (pure greedy on the left, no attraction to the leader on the right)</span></div>
@@ -442,7 +443,8 @@
   function renderStats(rows){
     const n=rows.length,ok=rows.filter(r=>r.correct),miss=rows.filter(r=>!r.correct);
     const all=sessionRows().length;
-    $('kN').textContent=n;$('kNs').textContent=n?`${all} result${all===1?'':'s'} in this session${all!==n?`, ${n} shown`:''}`:'no results yet';
+    const students=new Set(rows.map(r=>r.sessionKey+'\u0000'+r.round+'\u0000'+r.name.trim().toLowerCase())).size;
+    $('kN').textContent=n;$('kNs').textContent=n?(n!==students?`${n} games by ${students} student${students===1?'':'s'}`:`${all} result${all===1?'':'s'} in this session${all!==n?`, ${n} shown`:''}`):'no results yet';
     const ci=wilson(ok.length,n);
     $('kRate').textContent=n?pct(ok.length/n):'–';$('kRateS').textContent=n?`${ok.length} of ${n}${ci?` · 95% CI ${pct(ci[0])}–${pct(ci[1])}`:''}`:'';
     const th=r=>r.tauHat,mo=median(ok.map(th).filter(v=>v!==null)),mm=median(miss.map(th).filter(v=>v!==null));
@@ -454,7 +456,7 @@
     const greedy=rows.filter(r=>r.tauB===0).length;
     const line=(k,v)=>`<div class="stat"><span>${k}</span><b>${v}</b></div>`;
     $('stats').innerHTML=n?
-      line('View',viewRound==='all'?'All rounds':viewRound===0?'No round':'Round '+viewRound)+line('Noise ±γ · tests',`${[...new Set(rows.map(r=>fmtG(r.gamma)))].join(', ')} · ${[...new Set(rows.map(r=>r.trials))].join(', ')}`)+line('True payoffs',[...new Set(rows.map(r=>r.payoffSpec))].join(', '))+line('Students shown',n)+line('Found the best',`${ok.length} (${pct(ok.length/n)})`)+line('Pure greedy (τb = 0)',`${greedy} (${pct(greedy/n)})`)+line('Median non-greedy tests',`${median(rows.map(r=>r.nonGreedy).filter(v=>v!==null))??'–'} of ${vs.T}`)+line('Median technologies retested',`${median(rows.map(r=>r.retested).filter(v=>v!==null))??'–'} / 5`)+line('Median τb · τw',`${median(rows.map(r=>r.tauB))?.toFixed(2)} · ${median(rows.map(r=>r.tauW))?.toFixed(2)}`)+line('Mean identification loss',`${(rows.reduce((s,r)=>s+(r.loss||0),0)/n).toFixed(1)} pts`)
+      line('View',viewRound==='all'?'All rounds':viewRound===0?'No round':'Round '+viewRound)+line('Noise ±γ · tests',`${[...new Set(rows.map(r=>fmtG(r.gamma)))].join(', ')} · ${[...new Set(rows.map(r=>r.trials))].join(', ')}`)+line('True payoffs',[...new Set(rows.map(r=>r.payoffSpec))].join(', '))+line('Games shown',n)+line('Found the best',`${ok.length} (${pct(ok.length/n)})`)+line('Pure greedy (τb = 0)',`${greedy} (${pct(greedy/n)})`)+line('Median non-greedy tests',`${median(rows.map(r=>r.nonGreedy).filter(v=>v!==null))??'–'} of ${vs.T}`)+line('Median technologies retested',`${median(rows.map(r=>r.retested).filter(v=>v!==null))??'–'} / 5`)+line('Median τb · τw',`${median(rows.map(r=>r.tauB))?.toFixed(2)} · ${median(rows.map(r=>r.tauW))?.toFixed(2)}`)+line('Mean identification loss',`${(rows.reduce((s,r)=>s+(r.loss||0),0)/n).toFixed(1)} pts`)
       +(pts?`<div class="note" style="margin-top:10px"><strong>Simulated benchmarks (±γ ${fmtG(vs.gamma)}, ${vs.T} tests, payoffs ${payoffStr(vs.spec)}):</strong> greedy agent ${pct(simGreedy)} · best fixed-τ agent ${pct(simBest)} · near-random choice ${pct(simRand)}.</div>`:'')
       :'<p class="note">Open a round and let students play, or import results, to see class statistics.</p>';
   }
@@ -523,7 +525,7 @@
   }
 
   // ---- Round control (Firestore settings document) ----
-  function ctlDraft(){return {sessionKey:$('ctlSeed').value.trim()||'SNU-INNOVATION-2026',round:Math.round(clampNum($('ctlRound').value,1,99,1)),gamma:Math.round(clampNum($('ctlGamma').value,4,40,12)*10)/10,trials:Math.round(clampNum($('ctlTrials').value,5,60,20)),mode:$('ctlMode').value==='shared'?'shared':'student',payoffs:ctlPayoff()};}
+  function ctlDraft(){return {sessionKey:$('ctlSeed').value.trim()||'SNU-INNOVATION-2026',round:Math.round(clampNum($('ctlRound').value,1,99,1)),gamma:Math.round(clampNum($('ctlGamma').value,4,40,12)*10)/10,trials:Math.round(clampNum($('ctlTrials').value,5,60,20)),mode:$('ctlMode').value==='shared'?'shared':'student',maxTries:Math.round(clampNum($('ctlTries').value,0,99,0)),payoffs:ctlPayoff()};}
   function writeSettings(patch){
     if(!db){toast('Round control needs Firebase (config.js)');return Promise.resolve();}
     patch.updatedAt=firebase.firestore.FieldValue.serverTimestamp();
@@ -531,7 +533,7 @@
   }
   function openRound(){
     const d=ctlDraft();
-    writeSettings({...d,open:true,rounds:{[d.round]:{gamma:d.gamma,trials:d.trials,mode:d.mode,payoffs:d.payoffs}}}).then(ok=>{if(ok)toast(`Round ${d.round} opened · ±γ ${fmtG(d.gamma)} · ${d.trials} tests · payoffs ${payoffStr(d.payoffs)}`);});
+    writeSettings({...d,open:true,rounds:{[d.round]:{gamma:d.gamma,trials:d.trials,mode:d.mode,payoffs:d.payoffs,maxTries:d.maxTries}}}).then(ok=>{if(ok)toast(`Round ${d.round} opened · ±γ ${fmtG(d.gamma)} · ${d.trials} tests · ${d.maxTries?d.maxTries+' tries':'unlimited tries'}`);});
   }
   function closeRound(){writeSettings({open:false}).then(ok=>{if(ok)toast('Round closed');});}
   function nextRound(){const d=ctlDraft();const r=Math.min(99,(settings&&settings.round?Number(settings.round):d.round)+1);$('ctlRound').value=r;openRound();}
@@ -539,7 +541,7 @@
   function fillControl(){
     if(!settings)return;
     const active=document.activeElement;const set=(id,v)=>{const el=$(id);if(el!==active&&v!==undefined&&v!==null)el.value=v;};
-    if(!ctlDirty){set('ctlSeed',settings.sessionKey);set('ctlRound',settings.round);set('ctlGamma',settings.gamma);set('ctlGammaRange',settings.gamma);set('ctlTrials',settings.trials);set('ctlMode',settings.mode);const p=normPayoff(settings.payoffs||PAYOFF_DEFAULT);set('ctlTopMin',p.topMin);set('ctlTopMax',p.topMax);set('ctlGapMin',p.gapMin);set('ctlGapMax',p.gapMax);set('ctlSpread',p.spread);}
+    if(!ctlDirty){set('ctlSeed',settings.sessionKey);set('ctlRound',settings.round);set('ctlGamma',settings.gamma);set('ctlGammaRange',settings.gamma);set('ctlTrials',settings.trials);set('ctlMode',settings.mode);set('ctlTries',String(Math.round(Number(settings.maxTries)||0)));const p=normPayoff(settings.payoffs||PAYOFF_DEFAULT);set('ctlTopMin',p.topMin);set('ctlTopMax',p.topMax);set('ctlGapMin',p.gapMin);set('ctlGapMax',p.gapMax);set('ctlSpread',p.spread);}
   }
   function renderControl(){
     $('payoffPreview').textContent=payoffText(ctlPayoff());
@@ -548,7 +550,7 @@
     if(!settings){st.textContent='No round yet';st.className='roundstate closed';return;}
     const open=settings.open!==false;
     const liveN=liveRows.filter(r=>r.sessionKey===settings.sessionKey&&r.round===Number(settings.round)).length;
-    st.textContent=`Round ${settings.round} · ${open?'OPEN':'CLOSED'} · ±γ ${fmtG(Number(settings.gamma))} · ${settings.trials} tests · payoffs ${payoffStr(normPayoff(settings.payoffs||PAYOFF_DEFAULT))} · ${liveN} result${liveN===1?'':'s'}`;
+    st.textContent=`Round ${settings.round} · ${open?'OPEN':'CLOSED'} · ±γ ${fmtG(Number(settings.gamma))} · ${settings.trials} tests · payoffs ${payoffStr(normPayoff(settings.payoffs||PAYOFF_DEFAULT))} · ${Number(settings.maxTries)>0?settings.maxTries+' tries':'unlimited tries'} · ${liveN} result${liveN===1?'':'s'}`;
     st.className='roundstate '+(open?'open':'closed');
     $('openBtn').textContent=ctlDirty?'Apply & open round':'Open round';
     $('closeBtn').disabled=!open;
@@ -621,7 +623,7 @@
   ['binsInput','firstOnly','sessionSel'].forEach(id=>$(id).addEventListener('change',renderAll));
   $('ctlGammaRange').addEventListener('input',()=>{$('ctlGamma').value=$('ctlGammaRange').value;ctlDirty=true;renderControl();});
   $('ctlGamma').addEventListener('input',()=>{$('ctlGammaRange').value=clampNum($('ctlGamma').value,4,40,12);ctlDirty=true;renderControl();});
-  ['ctlSeed','ctlRound','ctlTrials','ctlMode','ctlTopMin','ctlTopMax','ctlGapMin','ctlGapMax','ctlSpread'].forEach(id=>$(id).addEventListener('input',()=>{ctlDirty=true;renderControl();}));
+  ['ctlSeed','ctlRound','ctlTrials','ctlMode','ctlTries','ctlTopMin','ctlTopMax','ctlGapMin','ctlGapMax','ctlSpread'].forEach(id=>$(id).addEventListener('input',()=>{ctlDirty=true;renderControl();}));
   $('openBtn').addEventListener('click',()=>{ctlDirty=false;openRound();});
   $('closeBtn').addEventListener('click',closeRound);
   $('nextBtn').addEventListener('click',()=>{ctlDirty=false;nextRound();});
