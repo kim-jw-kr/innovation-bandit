@@ -110,11 +110,11 @@
 
 <div class="wrap">
   <section class="card control" id="controlBar">
-    <div class="section-row" style="margin-bottom:12px"><div><h2>Round control</h2><div class="subtle" id="controlSub">Students on the class link follow these settings live. Open a round to let them start; close it to stop new games.</div></div><span class="roundstate" id="roundState"></span></div>
+    <div class="section-row" style="margin-bottom:12px"><div><h2>Round control</h2><div class="subtle" id="controlSub">Students on the class link follow these settings live. Open a round to let them start; close it to stop new games. γ runs from 4 to 40: below 4 the starting trap (best technology never leads at the start) cannot be produced.</div></div><span class="roundstate" id="roundState"></span></div>
     <div class="fields">
       <div class="field"><label for="ctlSeed">Session key</label><input type="text" id="ctlSeed" maxlength="80" style="width:200px" value="SNU-INNOVATION-2026"></div>
       <div class="field"><label for="ctlRound">Round</label><input type="number" id="ctlRound" min="1" max="99" step="1" value="1" style="width:80px"></div>
-      <div class="field"><label for="ctlGammaRange">Noise ±γ</label><div class="gamma"><input type="range" id="ctlGammaRange" min="0" max="40" step="0.5" value="12"><input type="number" id="ctlGamma" min="0" max="40" step="0.5" value="12" style="width:80px"></div></div>
+      <div class="field"><label for="ctlGammaRange">Noise ±γ</label><div class="gamma"><input type="range" id="ctlGammaRange" min="4" max="40" step="0.5" value="12"><input type="number" id="ctlGamma" min="4" max="40" step="0.5" value="12" style="width:80px"></div></div>
       <div class="field"><label for="ctlTrials">Tests per game</label><input type="number" id="ctlTrials" min="5" max="60" step="1" value="20" style="width:90px"></div>
       <div class="field"><label for="ctlMode">Letters</label><select id="ctlMode"><option value="student">shuffled per student</option><option value="shared">same for everyone</option></select></div>
     </div>
@@ -194,7 +194,7 @@
     <div class="section-row"><div><h2>Student link</h2><div class="subtle" id="linkSub">Students open this link; it locks the settings and hides the instructor tools.</div></div><button class="btn small" id="linkClose">Close</button></div>
     <div class="row"><label class="inline">Session key <input type="text" id="linkSeed" value="SNU-INNOVATION-2026" maxlength="80" style="width:220px"></label></div>
     <div class="row" id="linkManual"><label class="inline">Tests <input type="number" id="linkTrials" min="5" max="60" value="20" style="width:70px"></label>
-      <label class="inline">±γ <input type="number" id="linkGamma" min="0" max="40" step="0.5" value="12" style="width:70px"></label>
+      <label class="inline">±γ <input type="number" id="linkGamma" min="4" max="40" step="0.5" value="12" style="width:70px"></label>
       <label class="inline">Round <input type="number" id="linkRound" min="0" max="99" value="0" style="width:70px"></label>
       <label class="inline">Letters <select id="linkMode"><option value="student">shuffled per student</option><option value="shared">shared</option></select></label></div>
     <div id="qr"></div>
@@ -339,7 +339,7 @@
   function mode(arr,d){if(!arr.length)return d;const c={};arr.forEach(v=>c[v]=(c[v]||0)+1);return Number(Object.keys(c).sort((a,b)=>c[b]-c[a])[0]);}
   // γ and T that describe the rows in view (most common values), falling back to the round control's settings.
   function viewSetting(rows){
-    const ctl={gamma:clampNum($('ctlGamma').value,0,40,12),T:clampNum($('ctlTrials').value,5,60,20)};
+    const ctl={gamma:clampNum($('ctlGamma').value,4,40,12),T:clampNum($('ctlTrials').value,5,60,20)};
     if(!rows.length)return ctl;
     return {gamma:mode(rows.map(r=>r.gamma).filter(v=>v!==null),ctl.gamma),T:mode(rows.map(r=>r.trials).filter(v=>v!==null),ctl.T)};
   }
@@ -383,7 +383,7 @@
     meta.data.forEach((el,i)=>{const b=ds.data[i]._b;if(!b||!b.n)return;const y=chart.scales.y.getPixelForValue(b.rate);ctx.fillText(`${b.ok}/${b.n}`,el.x,y-4);});ctx.restore();}};
   const rateChart=new Chart($('rateChart'),{type:'bar',data:{datasets:[]},options:{responsive:true,maintainAspectRatio:false,animation:false,interaction:{mode:'nearest',intersect:true},
     plugins:{legend:{display:false},tooltip:{callbacks:{title:()=> '',label:c=>{const raw=c.raw||{};if(raw._b){const b=raw._b;return `τ ${xLabel(b.lo)} – ${xLabel(b.hi)}: ${b.ok} of ${b.n} found the best (${Math.round(100*b.rate)}%)`;}if(raw._r){const r=raw._r;return [`${r.name}${r.round?' · round '+r.round:''} · ${r.correct?'found the best':'missed ('+r.finalPick+' vs '+r.trueBest+')'}`,`τ̂ ${r.tauHat===null?'–':(r.tauAtLow?'< '+TAU_MIN:r.tauAtHigh?'> '+TAU_MAX:fmtTau(r.tauHat))} · τb ${r.tauB?.toFixed(2)} · τw ${r.tauW?.toFixed(2)} · ±γ ${fmtG(r.gamma)}`,`Sequence ${r.sequence}`];}if(raw._s)return `Simulated softmax agent, τ = ${fmtTau(Math.pow(10,raw.x))}: ${Math.round(100*raw.y)}%`;return '';}}}},
-    scales:{x:{type:'linear',grid:{color:LINE},title:{display:true,text:''},ticks:{autoSkip:false,maxRotation:0}},y:{min:0,max:1.08,grid:{color:LINE},title:{display:true,text:'Share who found the best technology'},ticks:{stepSize:0.2,callback:v=>v<=1?Math.round(v*100)+'%':''}}},
+    scales:{x:{type:'linear',grid:{color:LINE},title:{display:true,text:''},ticks:{autoSkip:false,maxRotation:0}},y:{min:-0.04,max:1.08,grid:{color:LINE},title:{display:true,text:'Share who found the best technology'},ticks:{stepSize:0.2,callback:v=>v>=0&&v<=1?Math.round(v*100)+'%':''}}},
     onClick:(e,active)=>{const el=active&&active[0];if(!el)return;const raw=rateChart.data.datasets[el.datasetIndex].data[el.index];if(raw&&raw._r){highlightId=highlightId===raw._r.runId?null:raw._r.runId;renderAll();}}},plugins:[nLabelPlugin]});
   const countChart=new Chart($('countChart'),{type:'bar',data:{datasets:[]},options:{responsive:true,maintainAspectRatio:false,animation:false,
     plugins:{legend:{position:'top',align:'end',labels:{boxWidth:10,usePointStyle:true}},tooltip:{callbacks:{title:items=>{const b=items[0]&&items[0].raw&&items[0].raw._b;return b?`τ ${xLabel(b.lo)} – ${xLabel(b.hi)}`:'';}}}},
@@ -399,7 +399,7 @@
     const bins=binRows(rows),e=edges();
     const used=rows.filter(r=>tauOf(r)!==null);
     const hollow=r=>measure==='hat'&&(r.tauAtLow||r.tauAtHigh);
-    const mk=(list,correct)=>({type:'scatter',label:correct?'Found':'Missed',order:1,data:list.map(r=>({x:xOf(tauOf(r))+hashJitter(r.runId)*(e[1]-e[0])*0.5,y:correct?1-0.025-Math.abs(hashJitter(r.runId+'y'))*0.06:0.025+Math.abs(hashJitter(r.runId+'y'))*0.06,_r:r})),
+    const mk=(list,correct)=>({type:'scatter',label:correct?'Found':'Missed',order:1,data:list.map(r=>({x:xOf(tauOf(r))+hashJitter(r.runId)*(e[1]-e[0])*0.5,y:correct?1:0,_r:r})),
       pointRadius:c=>{const r=c.raw&&c.raw._r;return r&&r.runId===highlightId?9:5.5;},pointHoverRadius:8,
       pointBackgroundColor:c=>{const r=c.raw&&c.raw._r;if(!r)return correct?TEAL:CORAL;return hollow(r)?'#fff':(correct?TEAL:CORAL);},
       pointBorderColor:c=>{const r=c.raw&&c.raw._r;return r&&r.runId===highlightId?NAVY:(correct?TEAL:CORAL);},pointBorderWidth:c=>{const r=c.raw&&c.raw._r;return r&&r.runId===highlightId?3:2;}});
@@ -508,7 +508,7 @@
   }
 
   // ---- Round control (Firestore settings document) ----
-  function ctlDraft(){return {sessionKey:$('ctlSeed').value.trim()||'SNU-INNOVATION-2026',round:Math.round(clampNum($('ctlRound').value,1,99,1)),gamma:Math.round(clampNum($('ctlGamma').value,0,40,12)*10)/10,trials:Math.round(clampNum($('ctlTrials').value,5,60,20)),mode:$('ctlMode').value==='shared'?'shared':'student'};}
+  function ctlDraft(){return {sessionKey:$('ctlSeed').value.trim()||'SNU-INNOVATION-2026',round:Math.round(clampNum($('ctlRound').value,1,99,1)),gamma:Math.round(clampNum($('ctlGamma').value,4,40,12)*10)/10,trials:Math.round(clampNum($('ctlTrials').value,5,60,20)),mode:$('ctlMode').value==='shared'?'shared':'student'};}
   function writeSettings(patch){
     if(!db){toast('Round control needs Firebase (config.js)');return Promise.resolve();}
     patch.updatedAt=firebase.firestore.FieldValue.serverTimestamp();
@@ -590,7 +590,7 @@
   function studentLink(){
     const b=baseUrl();if(!b)return '';const u=new URL(b);
     u.searchParams.set('class','1');u.searchParams.set('seed',$('linkSeed').value.trim()||'SNU-INNOVATION-2026');
-    if(!db){u.searchParams.set('rounds',String(Math.round(clampNum($('linkTrials').value,5,60,20))));const g=clampNum($('linkGamma').value,0,40,12);if(g!==12)u.searchParams.set('gamma',String(g));const r=Math.round(clampNum($('linkRound').value,0,99,0));if(r)u.searchParams.set('round',String(r));u.searchParams.set('mode',$('linkMode').value);}
+    if(!db){u.searchParams.set('rounds',String(Math.round(clampNum($('linkTrials').value,5,60,20))));const g=clampNum($('linkGamma').value,4,40,12);if(g!==12)u.searchParams.set('gamma',String(g));const r=Math.round(clampNum($('linkRound').value,0,99,0));if(r)u.searchParams.set('round',String(r));u.searchParams.set('mode',$('linkMode').value);}
     return u.href;
   }
   function renderLink(){
@@ -604,7 +604,7 @@
   $('measureSeg').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{measure=b.dataset.m;$('measureSeg').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));renderAll();}));
   ['binsInput','simToggle','firstOnly','sessionSel'].forEach(id=>$(id).addEventListener('change',renderAll));
   $('ctlGammaRange').addEventListener('input',()=>{$('ctlGamma').value=$('ctlGammaRange').value;ctlDirty=true;renderControl();});
-  $('ctlGamma').addEventListener('input',()=>{$('ctlGammaRange').value=clampNum($('ctlGamma').value,0,40,12);ctlDirty=true;renderControl();});
+  $('ctlGamma').addEventListener('input',()=>{$('ctlGammaRange').value=clampNum($('ctlGamma').value,4,40,12);ctlDirty=true;renderControl();});
   ['ctlSeed','ctlRound','ctlTrials','ctlMode'].forEach(id=>$(id).addEventListener('input',()=>{ctlDirty=true;renderControl();}));
   $('openBtn').addEventListener('click',()=>{ctlDirty=false;openRound();});
   $('closeBtn').addEventListener('click',closeRound);

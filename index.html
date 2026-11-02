@@ -324,7 +324,7 @@
   const LOWER_SPREAD=12; // The three weaker means lie within 12 points below the runner-up, so all five sit in an 18-point band.
   const EXPLORATION_GAP_SCALE_SD=2; // A gap of 2γ (twice the noise half-width) receives maximum weight.
   const FREE_INITIAL_SAMPLES=1; // One shared, noisy observation per technology before students choose.
-  const GAMMA_DEFAULT=12, GAMMA_MIN=0, GAMMA_MAX=40; // Uniform noise on [-γ, γ]. γ is set per round by the instructor (dashboard, ?gamma=, or Instructor setup); default 12.
+  const GAMMA_DEFAULT=12, GAMMA_MIN=4, GAMMA_MAX=40; // Uniform noise on [-γ, γ]. γ is set per round by the instructor (dashboard, ?gamma=, or Instructor setup); default 12. Below 4 the starting trap becomes impossible (a 2-6 point gap cannot be overturned), so 4 is the floor.
   // Randomization scope. The session key always fixes the SET of five true means; noise draws are always per student run.
   const RANDOMIZATION={student:{label:'Independent per student (letters shuffled per run)',short:'Letters shuffled per run'},shared:{label:'Shared class assignment (same letters for everyone)',short:'Shared letter assignment'}};
   const TAU_GRID_MIN=0.05, TAU_GRID_MAX=500, TAU_GRID_N=600; // Log-spaced grid for the softmax temperature MLE.
@@ -471,7 +471,7 @@
   function resultCode(){const r=resultRecord();return 'IDLAB1|'+CODE_FIELDS.map(k=>{const v=r[k];return v===null||v===undefined?'':typeof v==='boolean'?(v?1:0):String(v).replace(/[|\r\n]/g,' ');}).join('|');}
   function submitResult(){
     if(state.screen!=='results')return;
-    const db=labFirestore();
+    const db=state.classroom?labFirestore():null; // Only games played on a class link are recorded; practice runs on the plain page are not.
     if(!db){state.submitStatus='offline';return;}
     state.submitStatus='sending';
     const rec=resultRecord();rec.createdAt=firebase.firestore.FieldValue.serverTimestamp();
@@ -643,7 +643,7 @@
       <p class="subtle">The session key fixes the hidden <strong>set</strong> of five true means, so everyone in the class faces the same difficulty. Every student run then draws its own five free starting observations and its own payoff noise, so no two students (and no two replays) see the same numbers. Each results page and CSV carries a <strong>Run ID</strong> that reproduces that student's draws exactly.</p><p class="tiny" style="margin:9px 0 0"><strong>Difficulty:</strong> Five distinct hidden means are drawn for each session. The highest mean is between 92 and 100 (not always 100), the runner-up is 2–6 points below it, and the three weaker means lie within 12 points below the runner-up, so all five sit inside an 18-point band (never below 74). Means are then assigned to A–E. Individual observed payoffs can fall well outside that band because of noise. <strong>Starting trap:</strong> the five free starting observations are conditioned so that the true best technology never shows the highest starting value, so every student begins with a tempting wrong leader. Do not tell students this rule, or they will simply avoid the initial leader.</p><div class="divider"></div>
       <div class="teacher-third teacher-two">
         <div class="teacher-field"><label for="teacher-trials">TESTS PER GAME (5–60)</label><input id="teacher-trials" class="text-input" type="number" min="5" max="60" step="1" value="${state.draftTrials}"></div>
-        <div class="teacher-field"><label for="teacher-gamma">NOISE ±γ (0–40)</label><input id="teacher-gamma" class="text-input" type="number" min="0" max="40" step="0.5" value="${state.draftGamma}"></div>
+        <div class="teacher-field"><label for="teacher-gamma">NOISE ±γ (4–40)</label><input id="teacher-gamma" class="text-input" type="number" min="4" max="40" step="0.5" value="${state.draftGamma}"></div>
         <div class="teacher-field"><label for="teacher-round">ROUND (0 = none)</label><input id="teacher-round" class="text-input" type="number" min="0" max="99" step="1" value="${state.draftRound}"></div>
         <div class="teacher-field"><label for="teacher-seed">SESSION KEY</label><input id="teacher-seed" class="text-input" maxlength="80" spellcheck="false" value="${esc(state.draftSeed)}"></div>
       </div>
