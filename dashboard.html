@@ -177,7 +177,7 @@
   <aside class="rail">
     <div class="card"><h2 style="font-size:16px;margin-bottom:8px">Summary</h2><div id="stats"></div></div>
     <div class="card"><h2 style="font-size:16px;margin-bottom:8px">Reading the chart</h2>
-      <p class="note"><strong>τ̂</strong> is the softmax temperature fitted to each student's choices (payoff points, log scale): near 0 means always testing the current leader; large values mean choices barely depended on the sample means. <strong>τb</strong> is the share of non-greedy tests; <strong>τw</strong> weights each non-greedy test by how far below the leader it was.</p>
+      <p class="note"><strong>τ̂</strong> is the softmax temperature fitted to each student's choices (payoff points, log scale): near 0 means always testing the current leader; large values mean choices barely depended on the sample means. <strong>τb</strong> is the share of non-greedy tests; <strong>τw</strong> weights each non-greedy test by how far below the leader it was, in units of the round's noise γ (a gap of γ or more counts fully).</p>
       <p class="note">The simulated benchmarks in the summary come from softmax agents with a fixed τ playing the same game in this page (same hidden-mean rule, starting trap, noise ±γ and test budget as the round in view; 1,500 games per point). Students often beat them at the same τ̂ because they explore early and exploit late, which a fixed-τ agent cannot do.</p>
       <p class="note">Hollow dots are students whose τ̂ sits at a grid bound: pure greedy play (left) or choices with no attraction to the leader (right). Only a bound on τ is identified for them.</p>
     </div>
@@ -409,7 +409,7 @@
     const sc=chart.options.scales.x;sc.min=e[0];sc.max=e[e.length-1];
     sc.afterBuildTicks=scale=>{scale.ticks=e.map(v=>({value:v}));};
     sc.ticks.callback=v=>xLabel(v);
-    sc.title.text=measure==='hat'?'Softmax temperature τ̂ (payoff points, log scale) → more exploration':measure==='b'?'Binary exploration τb (share of non-greedy tests)':'Weighted exploration τw';
+    sc.title.text=measure==='hat'?'Softmax temperature τ̂ (payoff points, log scale) → more exploration':measure==='b'?'Binary exploration τb (share of non-greedy tests)':'Weighted exploration τw (gap below the leader in units of γ, capped at 1)';
   }
   function renderCharts(rows){
     const bins=binRows(rows),e=edges();

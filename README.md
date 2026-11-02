@@ -130,9 +130,11 @@ tau_b = sum_t 1[g_t > 0] / T
 **2. Payoff-gap-weighted exploration index** (descriptive)
 
 ```
-w_t   = min(1, g_t / (2 * gamma))
+w_t   = min(1, g_t / gamma)
 tau_w = sum_t w_t / T
 ```
+
+`g_t` is the gap between the highest pre-decision sample mean and the chosen technology's sample mean. The weight reaches 1 at a gap of one noise half-width γ: a technology trailing by less than γ could still be the best on the evidence of a single draw, one trailing by γ or more cannot, so testing it is deliberate exploration. (Until 2026-11-03 the scale was `2 * gamma`, which compressed τw below 0.4 for almost every student because the five true means sit within a band narrower than 2γ.) Because γ is set per round, τw rescales automatically when the noise changes.
 
 **3. Softmax temperature** (model-based, maximum likelihood)
 
