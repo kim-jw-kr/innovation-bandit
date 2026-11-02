@@ -1,22 +1,21 @@
 /* Explore / Identify — class configuration.
    Both pages read this file: index.html (students) and dashboard.html (instructor).
 
-   Live collection of results uses the same Firebase project as the Week 2 bean-counting exercise
-   (bean-counting0722). The web API key below is meant to be public: access is controlled by the Firestore
-   rules (firestore.rules in this folder, which also keeps the bean-counting rules), not by the key.
-   The rules must be published once in the Firebase console: Build → Firestore Database → Rules → paste → Publish.
+   Live collection of results uses the Firebase project "innovation-bandit" (Spark plan, free).
+   The web API key below is meant to be public: access is controlled by the Firestore rules
+   (firestore.rules in this folder, published in the Firebase console), not by the key.
 
    Without a working Firebase setup the pages still work: students press "Copy result code" on their results
    page and you paste the codes into the dashboard (Import results).
 */
 window.LAB_CONFIG = {
   firebaseConfig: {
-    apiKey: "AIzaSyA53NV98pMCg2tI03rIN8eLoRfdamSi33Y",
-    authDomain: "bean-counting0722.firebaseapp.com",
-    projectId: "bean-counting0722",
-    storageBucket: "bean-counting0722.firebasestorage.app",
-    messagingSenderId: "575544640458",
-    appId: "1:575544640458:web:97eb61e3db258f94114533"
+    apiKey: "AIzaSyDjBgus_aR1q0Ggz4J7P5r8hdhIwSv4F3w",
+    authDomain: "innovation-bandit.firebaseapp.com",
+    projectId: "innovation-bandit",
+    storageBucket: "innovation-bandit.firebasestorage.app",
+    messagingSenderId: "572649515065",
+    appId: "1:572649515065:web:562e17f0eb13cf6c46c5e8"
   },
 
   // Firestore collection that holds one document per finished game (document id = Run ID).
