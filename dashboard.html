@@ -118,6 +118,12 @@
       <div class="field"><label for="ctlTrials">Tests per game</label><input type="number" id="ctlTrials" min="5" max="60" step="1" value="20" style="width:90px"></div>
       <div class="field"><label for="ctlMode">Letters</label><select id="ctlMode"><option value="student">shuffled per student</option><option value="shared">same for everyone</option></select></div>
     </div>
+    <div class="fields" style="margin-top:12px">
+      <div class="field"><label>True payoffs · best mean, min–max</label><div class="gamma"><input type="number" id="ctlTopMin" min="20" max="100" step="1" value="92" style="width:72px"> – <input type="number" id="ctlTopMax" min="20" max="100" step="1" value="100" style="width:72px"></div></div>
+      <div class="field"><label>Gap to runner-up, min–max</label><div class="gamma"><input type="number" id="ctlGapMin" min="1" max="30" step="1" value="2" style="width:72px"> – <input type="number" id="ctlGapMax" min="1" max="30" step="1" value="6" style="width:72px"></div></div>
+      <div class="field"><label for="ctlSpread">Other three within … below runner-up</label><input type="number" id="ctlSpread" min="3" max="40" step="1" value="12" style="width:80px"></div>
+      <div class="field"><label>Resulting hidden means</label><div class="subtle" id="payoffPreview" style="padding-top:6px"></div></div>
+    </div>
     <div class="actions">
       <button class="btn primary" id="openBtn">Open round</button>
       <button class="btn warnbtn" id="closeBtn">Close round</button>
@@ -195,7 +201,8 @@
     <div class="row" id="linkManual"><label class="inline">Tests <input type="number" id="linkTrials" min="5" max="60" value="20" style="width:70px"></label>
       <label class="inline">±γ <input type="number" id="linkGamma" min="4" max="40" step="0.5" value="12" style="width:70px"></label>
       <label class="inline">Round <input type="number" id="linkRound" min="0" max="99" value="0" style="width:70px"></label>
-      <label class="inline">Letters <select id="linkMode"><option value="student">shuffled per student</option><option value="shared">shared</option></select></label></div>
+      <label class="inline">Letters <select id="linkMode"><option value="student">shuffled per student</option><option value="shared">shared</option></select></label>
+      <label class="inline">True payoffs <input type="text" id="linkPayoff" value="92-100/2-6/12" style="width:130px" spellcheck="false"></label></div>
     <div id="qr"></div>
     <div class="mono" id="linkText"></div>
     <div class="row"><button class="btn primary" id="copyLink">Copy link</button><span class="subtle">If this page is opened from a local file, host the folder online (e.g. GitHub Pages) to get a shareable link.</span></div>
@@ -219,7 +226,7 @@
   const TEAL='#167c73',CORAL='#d9583b',NAVY='#152b31',MUTED='#64747a',LINE='#dce5e3';
   const COLLECTION=CFG.collection||'bandit_results',SETTINGS_DOC='bandit_settings/session';
   // Field order of the student's result code (must match CODE_FIELDS in index.html; new fields are appended).
-  const CODE_FIELDS=['v','sessionKey','runId','name','mode','trials','gamma','attempt','finalPick','trueBest','correct','tauB','tauW','tauHat','tauLow','tauHigh','tauAtLow','tauAtHigh','pseudoR2','loss','nonGreedy','retested','paidPayoff','sequence','initialDraws','trueMeans','round'];
+  const CODE_FIELDS=['v','sessionKey','runId','name','mode','trials','gamma','attempt','finalPick','trueBest','correct','tauB','tauW','tauHat','tauLow','tauHigh','tauAtLow','tauAtHigh','pseudoR2','loss','nonGreedy','retested','paidPayoff','sequence','initialDraws','trueMeans','round','payoffSpec'];
   const NUM=new Set(['v','trials','gamma','attempt','tauB','tauW','tauHat','tauLow','tauHigh','pseudoR2','loss','nonGreedy','retested','paidPayoff','round']);
   const BOOL=new Set(['correct','tauAtLow','tauAtHigh']);
 
@@ -233,6 +240,13 @@
   function toast(msg){const el=$('toast');el.textContent=msg;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),2800);}
   function askPin(){if(pinOk)return true;const v=prompt('Admin PIN (config.js → adminPin)');if(v===null)return false;if(String(v).trim()===String(CFG.adminPin??'1234')){pinOk=true;return true;}toast('Wrong PIN');return false;}
   const clampNum=(x,lo,hi,d)=>{const n=Number(x);return Number.isFinite(n)?Math.min(hi,Math.max(lo,n)):d;};
+  // True-payoff spec (same rules as index.html): best mean in [topMin,topMax], runner-up gapMin-gapMax below, three others within `spread` below the runner-up.
+  const PAYOFF_DEFAULT={topMin:92,topMax:100,gapMin:2,gapMax:6,spread:12};
+  function normPayoff(o){o=o||{};const r=(x,lo,hi,d)=>Math.round(clampNum(x,lo,hi,d));const topMax=r(o.topMax,20,100,100),topMin=r(o.topMin,20,topMax,Math.min(92,topMax));const gapMax=r(o.gapMax,1,30,6),gapMin=r(o.gapMin,1,gapMax,Math.min(2,gapMax));return {topMin,topMax,gapMin,gapMax,spread:r(o.spread,3,40,12)};}
+  const payoffStr=p=>`${p.topMin}-${p.topMax}/${p.gapMin}-${p.gapMax}/${p.spread}`;
+  function parsePayoff(str){const m=String(str||'').trim().match(/^(\d+)\s*-\s*(\d+)\s*\/\s*(\d+)\s*-\s*(\d+)\s*\/\s*(\d+)$/);return m?normPayoff({topMin:m[1],topMax:m[2],gapMin:m[3],gapMax:m[4],spread:m[5]}):normPayoff(PAYOFF_DEFAULT);}
+  const payoffText=p=>`best ${p.topMin}–${p.topMax} · runner-up ${p.gapMin}–${p.gapMax} below · others within ${p.spread} below the runner-up (band ≈ ${p.topMax-p.topMin+p.gapMax+p.spread} points)`;
+  function ctlPayoff(){return normPayoff({topMin:$('ctlTopMin').value,topMax:$('ctlTopMax').value,gapMin:$('ctlGapMin').value,gapMax:$('ctlGapMax').value,spread:$('ctlSpread').value});}
 
   // ---- Normalisation ----
   function normalize(o,source){
@@ -249,6 +263,7 @@
     if(r.attempt===null)r.attempt=1;
     if(r.round===null)r.round=0;
     if(r.gamma===null)r.gamma=12;
+    if(!r.payoffSpec)r.payoffSpec='92-100/2-6/12';
     if(r.tauHat!==null){if(r.tauHat<=TAU_MIN*1.0001)r.tauAtLow=true;if(r.tauHat>=TAU_MAX*0.9999)r.tauAtHigh=true;}
     r.source=source;r.createdAtMs=Number(o.createdAtMs)||Date.now();
     return r;
@@ -338,19 +353,20 @@
   function mode(arr,d){if(!arr.length)return d;const c={};arr.forEach(v=>c[v]=(c[v]||0)+1);return Number(Object.keys(c).sort((a,b)=>c[b]-c[a])[0]);}
   // γ and T that describe the rows in view (most common values), falling back to the round control's settings.
   function viewSetting(rows){
-    const ctl={gamma:clampNum($('ctlGamma').value,4,40,12),T:clampNum($('ctlTrials').value,5,60,20)};
+    const ctl={gamma:clampNum($('ctlGamma').value,4,40,12),T:clampNum($('ctlTrials').value,5,60,20),spec:ctlPayoff()};
     if(!rows.length)return ctl;
-    return {gamma:mode(rows.map(r=>r.gamma).filter(v=>v!==null),ctl.gamma),T:mode(rows.map(r=>r.trials).filter(v=>v!==null),ctl.T)};
+    const specs={};rows.forEach(r=>{specs[r.payoffSpec]=(specs[r.payoffSpec]||0)+1;});const specStr=Object.keys(specs).sort((a,b)=>specs[b]-specs[a])[0];
+    return {gamma:mode(rows.map(r=>r.gamma).filter(v=>v!==null),ctl.gamma),T:mode(rows.map(r=>r.trials).filter(v=>v!==null),ctl.T),spec:parsePayoff(specStr)};
   }
 
   // ---- Reference curve: softmax agents simulated on the game itself (same rules as index.html) ----
   const simCache=new Map();let simPending=null;
-  function simulateCurve(gamma,T,games){
+  function simulateCurve(gamma,T,games,spec){
     const taus=Array.from({length:20},(_,i)=>TAU_MIN*Math.pow(TAU_MAX/TAU_MIN,i/19));
     return taus.map(tau=>{
       let ok=0;
       for(let g=0;g<games;g++){
-        const top=92+Math.floor(Math.random()*9),runner=top-(2+Math.floor(Math.random()*5)),floor=Math.max(70,runner-12);
+        const top=spec.topMin+Math.floor(Math.random()*(spec.topMax-spec.topMin+1)),runner=top-(spec.gapMin+Math.floor(Math.random()*(spec.gapMax-spec.gapMin+1)));let floor=Math.max(0,runner-spec.spread);if(runner-floor<3)floor=runner-3;
         const pool=[];for(let v=floor;v<runner;v++)pool.push(v);
         for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const t=pool[i];pool[i]=pool[j];pool[j]=t;}
         const mu=[top,runner,pool[0],pool[1],pool[2]]; // arm 0 is the true best; the agent never sees the order
@@ -369,10 +385,10 @@
       return [tau,ok/games];
     });
   }
-  function simFor(gamma,T){
-    const key=gamma+'|'+T;
+  function simFor(gamma,T,spec){
+    spec=spec||ctlPayoff();const key=gamma+'|'+T+'|'+payoffStr(spec);
     if(simCache.has(key))return simCache.get(key);
-    if(simPending!==key){simPending=key;setTimeout(()=>{simCache.set(key,simulateCurve(gamma,T,1500));simPending=null;renderAll();},30);}
+    if(simPending!==key){simPending=key;setTimeout(()=>{simCache.set(key,simulateCurve(gamma,T,1500,spec));simPending=null;renderAll();},30);}
     return null;
   }
 
@@ -408,7 +424,7 @@
         pointBorderColor:c=>{const r=c.raw&&c.raw._r;return r&&r.runId===highlightId?NAVY:TEAL;},pointBorderWidth:c=>{const r=c.raw&&c.raw._r;return r&&r.runId===highlightId?3:2;}}
     ];
     const vs=viewSetting(rows);
-    if(measure==='hat')simFor(vs.gamma,vs.T); // keeps the simulated benchmarks in the summary up to date
+    if(measure==='hat')simFor(vs.gamma,vs.T,vs.spec); // keeps the simulated benchmarks in the summary up to date
     const top=Math.max(1,...bins.map(b=>b.ok));
     rateChart.options.scales.y.max=top+1;rateChart.options.scales.y.ticks.stepSize=top>12?2:1;
     applyXScale(rateChart,e);rateChart.data.datasets=ds;rateChart.update('none');
@@ -433,13 +449,13 @@
     $('kTau').textContent=n?`${mo===null?'–':fmtTau(mo)} · ${mm===null?'–':fmtTau(mm)}`:'–';$('kTauS').textContent=n?'softmax τ̂ in payoff points':'';
     const a=auc(ok.map(r=>tauOf(r)).filter(v=>v!==null),miss.map(r=>tauOf(r)).filter(v=>v!==null));
     $('kAuc').textContent=a===null?'–':pct(a);$('kAucS').textContent=a===null?'needs both outcomes':'chance that a random finder has higher τ than a random misser (50% = unrelated)';
-    const vs=viewSetting(rows);const pts=simCache.get(vs.gamma+'|'+vs.T);
+    const vs=viewSetting(rows);const pts=simCache.get(vs.gamma+'|'+vs.T+'|'+payoffStr(vs.spec));
     const simGreedy=pts?pts[0][1]:null,simBest=pts?Math.max(...pts.map(p=>p[1])):null,simRand=pts?pts[pts.length-1][1]:null;
     const greedy=rows.filter(r=>r.tauB===0).length;
     const line=(k,v)=>`<div class="stat"><span>${k}</span><b>${v}</b></div>`;
     $('stats').innerHTML=n?
-      line('View',viewRound==='all'?'All rounds':viewRound===0?'No round':'Round '+viewRound)+line('Noise ±γ · tests',`${[...new Set(rows.map(r=>fmtG(r.gamma)))].join(', ')} · ${[...new Set(rows.map(r=>r.trials))].join(', ')}`)+line('Students shown',n)+line('Found the best',`${ok.length} (${pct(ok.length/n)})`)+line('Pure greedy (τb = 0)',`${greedy} (${pct(greedy/n)})`)+line('Median non-greedy tests',`${median(rows.map(r=>r.nonGreedy).filter(v=>v!==null))??'–'} of ${vs.T}`)+line('Median technologies retested',`${median(rows.map(r=>r.retested).filter(v=>v!==null))??'–'} / 5`)+line('Median τb · τw',`${median(rows.map(r=>r.tauB))?.toFixed(2)} · ${median(rows.map(r=>r.tauW))?.toFixed(2)}`)+line('Mean identification loss',`${(rows.reduce((s,r)=>s+(r.loss||0),0)/n).toFixed(1)} pts`)
-      +(pts?`<div class="note" style="margin-top:10px"><strong>Simulated benchmarks (±γ ${fmtG(vs.gamma)}, ${vs.T} tests):</strong> greedy agent ${pct(simGreedy)} · best fixed-τ agent ${pct(simBest)} · near-random choice ${pct(simRand)}.</div>`:'')
+      line('View',viewRound==='all'?'All rounds':viewRound===0?'No round':'Round '+viewRound)+line('Noise ±γ · tests',`${[...new Set(rows.map(r=>fmtG(r.gamma)))].join(', ')} · ${[...new Set(rows.map(r=>r.trials))].join(', ')}`)+line('True payoffs',[...new Set(rows.map(r=>r.payoffSpec))].join(', '))+line('Students shown',n)+line('Found the best',`${ok.length} (${pct(ok.length/n)})`)+line('Pure greedy (τb = 0)',`${greedy} (${pct(greedy/n)})`)+line('Median non-greedy tests',`${median(rows.map(r=>r.nonGreedy).filter(v=>v!==null))??'–'} of ${vs.T}`)+line('Median technologies retested',`${median(rows.map(r=>r.retested).filter(v=>v!==null))??'–'} / 5`)+line('Median τb · τw',`${median(rows.map(r=>r.tauB))?.toFixed(2)} · ${median(rows.map(r=>r.tauW))?.toFixed(2)}`)+line('Mean identification loss',`${(rows.reduce((s,r)=>s+(r.loss||0),0)/n).toFixed(1)} pts`)
+      +(pts?`<div class="note" style="margin-top:10px"><strong>Simulated benchmarks (±γ ${fmtG(vs.gamma)}, ${vs.T} tests, payoffs ${payoffStr(vs.spec)}):</strong> greedy agent ${pct(simGreedy)} · best fixed-τ agent ${pct(simBest)} · near-random choice ${pct(simRand)}.</div>`:'')
       :'<p class="note">Open a round and let students play, or import results, to see class statistics.</p>';
   }
 
@@ -454,7 +470,8 @@
     const cfg=settings&&settings.rounds&&settings.rounds[r];
     const gamma=rows.length?mode(rows.map(x=>x.gamma),null):cfg?Number(cfg.gamma):null;
     const T=rows.length?mode(rows.map(x=>x.trials),null):cfg?Number(cfg.trials):null;
-    return {rows:dedupe(rows),gamma,T};
+    let spec=null;if(rows.length){const c={};rows.forEach(x=>{c[x.payoffSpec]=(c[x.payoffSpec]||0)+1;});spec=parsePayoff(Object.keys(c).sort((a,b)=>c[b]-c[a])[0]);}else if(cfg&&cfg.payoffs)spec=normPayoff(cfg.payoffs);
+    return {rows:dedupe(rows),gamma,T,spec};
   }
   function renderTabs(){
     const rounds=roundsPresent();const box=$('roundTabs');box.innerHTML='';
@@ -467,10 +484,10 @@
     const show=viewRound==='all'&&rounds.length>1;
     card.hidden=!show;
     if(show){
-      const trs=rounds.map(r=>{const i=roundInfo(r),n=i.rows.length,ok=i.rows.filter(x=>x.correct).length,ci=wilson(ok,n);const key=i.gamma!==null&&i.T?i.gamma+'|'+i.T:null;const sim=key&&simCache.has(key)?simCache.get(key):null;const simBest=sim?Math.max(...sim.map(p=>p[1])):null,simGreedy=sim?sim[0][1]:null;
-        return `<tr><td><strong>${r===0?'No round':'Round '+r}</strong></td><td class="num">${i.gamma===null?'–':'±'+fmtG(i.gamma)}</td><td class="num">${i.T??'–'}</td><td class="num">${n}</td><td class="num">${n?`<strong>${pct(ok/n)}</strong> <span class="subtle">(${ok}/${n}${ci?', '+pct(ci[0])+'–'+pct(ci[1]):''})</span>`:'–'}</td><td class="num">${n?fmtTauOrDash(median(i.rows.map(x=>x.tauHat).filter(v=>v!==null))):'–'}</td><td class="num">${n?pct(i.rows.filter(x=>x.tauB===0).length/n):'–'}</td><td class="num">${sim?`${pct(simGreedy)} / ${pct(simBest)}`:'–'}</td></tr>`;}).join('');
-      $('byRoundTable').innerHTML=`<thead><tr><th>Round</th><th>Noise ±γ</th><th>Tests</th><th>Students</th><th>Found the best</th><th>Median τ̂</th><th>Pure greedy</th><th>Sim. greedy / best τ</th></tr></thead><tbody>${trs}</tbody>`;
-      rounds.forEach(r=>{const i=roundInfo(r);if(i.gamma!==null&&i.T)simFor(i.gamma,i.T);});
+      const trs=rounds.map(r=>{const i=roundInfo(r),n=i.rows.length,ok=i.rows.filter(x=>x.correct).length,ci=wilson(ok,n);const key=i.gamma!==null&&i.T?i.gamma+'|'+i.T+'|'+payoffStr(i.spec||PAYOFF_DEFAULT):null;const sim=key&&simCache.has(key)?simCache.get(key):null;const simBest=sim?Math.max(...sim.map(p=>p[1])):null,simGreedy=sim?sim[0][1]:null;
+        return `<tr><td><strong>${r===0?'No round':'Round '+r}</strong></td><td class="num">${i.gamma===null?'–':'±'+fmtG(i.gamma)}</td><td class="num">${i.T??'–'}</td><td class="num">${i.spec?payoffStr(i.spec):'–'}</td><td class="num">${n}</td><td class="num">${n?`<strong>${pct(ok/n)}</strong> <span class="subtle">(${ok}/${n}${ci?', '+pct(ci[0])+'–'+pct(ci[1]):''})</span>`:'–'}</td><td class="num">${n?fmtTauOrDash(median(i.rows.map(x=>x.tauHat).filter(v=>v!==null))):'–'}</td><td class="num">${n?pct(i.rows.filter(x=>x.tauB===0).length/n):'–'}</td><td class="num">${sim?`${pct(simGreedy)} / ${pct(simBest)}`:'–'}</td></tr>`;}).join('');
+      $('byRoundTable').innerHTML=`<thead><tr><th>Round</th><th>Noise ±γ</th><th>Tests</th><th>True payoffs</th><th>Students</th><th>Found the best</th><th>Median τ̂</th><th>Pure greedy</th><th>Sim. greedy / best τ</th></tr></thead><tbody>${trs}</tbody>`;
+      rounds.forEach(r=>{const i=roundInfo(r);if(i.gamma!==null&&i.T)simFor(i.gamma,i.T,i.spec||PAYOFF_DEFAULT);});
     }
   }
   const fmtTauOrDash=v=>v===null?'–':fmtTau(v);
@@ -506,7 +523,7 @@
   }
 
   // ---- Round control (Firestore settings document) ----
-  function ctlDraft(){return {sessionKey:$('ctlSeed').value.trim()||'SNU-INNOVATION-2026',round:Math.round(clampNum($('ctlRound').value,1,99,1)),gamma:Math.round(clampNum($('ctlGamma').value,4,40,12)*10)/10,trials:Math.round(clampNum($('ctlTrials').value,5,60,20)),mode:$('ctlMode').value==='shared'?'shared':'student'};}
+  function ctlDraft(){return {sessionKey:$('ctlSeed').value.trim()||'SNU-INNOVATION-2026',round:Math.round(clampNum($('ctlRound').value,1,99,1)),gamma:Math.round(clampNum($('ctlGamma').value,4,40,12)*10)/10,trials:Math.round(clampNum($('ctlTrials').value,5,60,20)),mode:$('ctlMode').value==='shared'?'shared':'student',payoffs:ctlPayoff()};}
   function writeSettings(patch){
     if(!db){toast('Round control needs Firebase (config.js)');return Promise.resolve();}
     patch.updatedAt=firebase.firestore.FieldValue.serverTimestamp();
@@ -514,7 +531,7 @@
   }
   function openRound(){
     const d=ctlDraft();
-    writeSettings({...d,open:true,rounds:{[d.round]:{gamma:d.gamma,trials:d.trials,mode:d.mode}}}).then(ok=>{if(ok)toast(`Round ${d.round} opened · ±γ ${fmtG(d.gamma)} · ${d.trials} tests`);});
+    writeSettings({...d,open:true,rounds:{[d.round]:{gamma:d.gamma,trials:d.trials,mode:d.mode,payoffs:d.payoffs}}}).then(ok=>{if(ok)toast(`Round ${d.round} opened · ±γ ${fmtG(d.gamma)} · ${d.trials} tests · payoffs ${payoffStr(d.payoffs)}`);});
   }
   function closeRound(){writeSettings({open:false}).then(ok=>{if(ok)toast('Round closed');});}
   function nextRound(){const d=ctlDraft();const r=Math.min(99,(settings&&settings.round?Number(settings.round):d.round)+1);$('ctlRound').value=r;openRound();}
@@ -522,15 +539,16 @@
   function fillControl(){
     if(!settings)return;
     const active=document.activeElement;const set=(id,v)=>{const el=$(id);if(el!==active&&v!==undefined&&v!==null)el.value=v;};
-    if(!ctlDirty){set('ctlSeed',settings.sessionKey);set('ctlRound',settings.round);set('ctlGamma',settings.gamma);set('ctlGammaRange',settings.gamma);set('ctlTrials',settings.trials);set('ctlMode',settings.mode);}
+    if(!ctlDirty){set('ctlSeed',settings.sessionKey);set('ctlRound',settings.round);set('ctlGamma',settings.gamma);set('ctlGammaRange',settings.gamma);set('ctlTrials',settings.trials);set('ctlMode',settings.mode);const p=normPayoff(settings.payoffs||PAYOFF_DEFAULT);set('ctlTopMin',p.topMin);set('ctlTopMax',p.topMax);set('ctlGapMin',p.gapMin);set('ctlGapMax',p.gapMax);set('ctlSpread',p.spread);}
   }
   function renderControl(){
+    $('payoffPreview').textContent=payoffText(ctlPayoff());
     const st=$('roundState');
     if(!db){st.textContent='Manual mode';st.className='roundstate';$('controlSub').textContent='Round control needs Firebase (config.js). In manual mode, set round and γ in the student link instead.';['openBtn','closeBtn','nextBtn'].forEach(id=>{$(id).disabled=true;});return;}
     if(!settings){st.textContent='No round yet';st.className='roundstate closed';return;}
     const open=settings.open!==false;
     const liveN=liveRows.filter(r=>r.sessionKey===settings.sessionKey&&r.round===Number(settings.round)).length;
-    st.textContent=`Round ${settings.round} · ${open?'OPEN':'CLOSED'} · ±γ ${fmtG(Number(settings.gamma))} · ${settings.trials} tests · ${liveN} result${liveN===1?'':'s'}`;
+    st.textContent=`Round ${settings.round} · ${open?'OPEN':'CLOSED'} · ±γ ${fmtG(Number(settings.gamma))} · ${settings.trials} tests · payoffs ${payoffStr(normPayoff(settings.payoffs||PAYOFF_DEFAULT))} · ${liveN} result${liveN===1?'':'s'}`;
     st.className='roundstate '+(open?'open':'closed');
     $('openBtn').textContent=ctlDirty?'Apply & open round':'Open round';
     $('closeBtn').disabled=!open;
@@ -588,7 +606,7 @@
   function studentLink(){
     const b=baseUrl();if(!b)return '';const u=new URL(b);
     u.searchParams.set('class','1');u.searchParams.set('seed',$('linkSeed').value.trim()||'SNU-INNOVATION-2026');
-    if(!db){u.searchParams.set('rounds',String(Math.round(clampNum($('linkTrials').value,5,60,20))));const g=clampNum($('linkGamma').value,4,40,12);if(g!==12)u.searchParams.set('gamma',String(g));const r=Math.round(clampNum($('linkRound').value,0,99,0));if(r)u.searchParams.set('round',String(r));u.searchParams.set('mode',$('linkMode').value);}
+    if(!db){u.searchParams.set('rounds',String(Math.round(clampNum($('linkTrials').value,5,60,20))));const g=clampNum($('linkGamma').value,4,40,12);if(g!==12)u.searchParams.set('gamma',String(g));const r=Math.round(clampNum($('linkRound').value,0,99,0));if(r)u.searchParams.set('round',String(r));u.searchParams.set('mode',$('linkMode').value);const ps=payoffStr(parsePayoff($('linkPayoff').value));if(ps!==payoffStr(PAYOFF_DEFAULT))u.searchParams.set('payoff',ps);}
     return u.href;
   }
   function renderLink(){
@@ -603,7 +621,7 @@
   ['binsInput','firstOnly','sessionSel'].forEach(id=>$(id).addEventListener('change',renderAll));
   $('ctlGammaRange').addEventListener('input',()=>{$('ctlGamma').value=$('ctlGammaRange').value;ctlDirty=true;renderControl();});
   $('ctlGamma').addEventListener('input',()=>{$('ctlGammaRange').value=clampNum($('ctlGamma').value,4,40,12);ctlDirty=true;renderControl();});
-  ['ctlSeed','ctlRound','ctlTrials','ctlMode'].forEach(id=>$(id).addEventListener('input',()=>{ctlDirty=true;renderControl();}));
+  ['ctlSeed','ctlRound','ctlTrials','ctlMode','ctlTopMin','ctlTopMax','ctlGapMin','ctlGapMax','ctlSpread'].forEach(id=>$(id).addEventListener('input',()=>{ctlDirty=true;renderControl();}));
   $('openBtn').addEventListener('click',()=>{ctlDirty=false;openRound();});
   $('closeBtn').addEventListener('click',closeRound);
   $('nextBtn').addEventListener('click',()=>{ctlDirty=false;nextRound();});
@@ -634,7 +652,7 @@
   });
   $('linkBtn').addEventListener('click',()=>{const s=$('sessionSel').value||(settings&&settings.sessionKey)||$('ctlSeed').value;if(s)$('linkSeed').value=s;$('linkModal').hidden=false;renderLink();});
   $('linkClose').addEventListener('click',()=>{$('linkModal').hidden=true;});
-  ['linkSeed','linkTrials','linkGamma','linkRound','linkMode'].forEach(id=>$(id).addEventListener('input',renderLink));
+  ['linkSeed','linkTrials','linkGamma','linkRound','linkMode','linkPayoff'].forEach(id=>$(id).addEventListener('input',renderLink));
   $('copyLink').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(studentLink());toast('Link copied');}catch(e){toast('Copy failed; select the text manually');}});
   document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.hidden=true;}));
   document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.overlay').forEach(o=>o.hidden=true);});

@@ -320,8 +320,22 @@
 (() => {
   'use strict';
   const ARMS=['A','B','C','D','E'];
-  const MIN_MEAN=70, MAX_MEAN=100; // Hidden true means are randomly drawn per class session.
-  const LOWER_SPREAD=12; // The three weaker means lie within 12 points below the runner-up, so all five sit in an 18-point band.
+  // Hidden true means are drawn per session and round from a PAYOFF SPEC the instructor can change per round:
+  // best mean in [topMin, topMax], runner-up gapMin-gapMax points below it, three others within `spread` points below the runner-up.
+  const PAYOFF_DEFAULT={topMin:92,topMax:100,gapMin:2,gapMax:6,spread:12};
+  const clampInt=(x,lo,hi,d)=>{const n=Math.round(Number(x));return Number.isFinite(n)?Math.min(hi,Math.max(lo,n)):d;};
+  function normPayoff(o){
+    o=o||{};const topMax=clampInt(o.topMax,20,100,PAYOFF_DEFAULT.topMax),topMin=clampInt(o.topMin,20,topMax,Math.min(PAYOFF_DEFAULT.topMin,topMax));
+    const gapMax=clampInt(o.gapMax,1,30,PAYOFF_DEFAULT.gapMax),gapMin=clampInt(o.gapMin,1,gapMax,Math.min(PAYOFF_DEFAULT.gapMin,gapMax));
+    const spread=clampInt(o.spread,3,40,PAYOFF_DEFAULT.spread);
+    return {topMin,topMax,gapMin,gapMax,spread};
+  }
+  const payoffSpecString=(p)=>`${p.topMin}-${p.topMax}/${p.gapMin}-${p.gapMax}/${p.spread}`; // e.g. 92-100/2-6/12
+  function parsePayoffSpec(str){
+    const m=String(str||'').trim().match(/^(\d+)\s*-\s*(\d+)\s*\/\s*(\d+)\s*-\s*(\d+)\s*\/\s*(\d+)$/);
+    return m?normPayoff({topMin:m[1],topMax:m[2],gapMin:m[3],gapMax:m[4],spread:m[5]}):normPayoff(PAYOFF_DEFAULT);
+  }
+  const payoffText=(p)=>`best ${p.topMin}–${p.topMax}, runner-up ${p.gapMin}–${p.gapMax} points below, the other three within ${p.spread} points below the runner-up`;
   const EXPLORATION_GAP_SCALE_SD=2; // A gap of 2γ (twice the noise half-width) receives maximum weight.
   const FREE_INITIAL_SAMPLES=1; // One shared, noisy observation per technology before students choose.
   const GAMMA_DEFAULT=12, GAMMA_MIN=4, GAMMA_MAX=40; // Uniform noise on [-γ, γ]. γ is set per round by the instructor (dashboard, ?gamma=, or Instructor setup); default 12. Below 4 the starting trap becomes impossible (a 2-6 point gap cannot be overturned), so 4 is the floor.
@@ -338,10 +352,10 @@
   function newRunId(){const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let out='';if(window.crypto&&crypto.getRandomValues){const buf=new Uint32Array(8);crypto.getRandomValues(buf);for(const b of buf)out+=alphabet[b%alphabet.length];}else{for(let i=0;i<8;i++)out+=alphabet[Math.floor(Math.random()*alphabet.length)];}return out;}
   const classroom=params.get('class')==='1';
   const seed=(params.get('seed')||'SNU-INNOVATION-2026').slice(0,80);
-  const state={screen:'home',phase:'playing',name:'',classroom,gamma:getGamma(params.get('gamma')),round:getRound(params.get('round')),live:null,
+  const state={screen:'home',phase:'playing',name:'',classroom,gamma:getGamma(params.get('gamma')),round:getRound(params.get('round')),payoff:parsePayoffSpec(params.get('payoff')),live:null,
     trials:getTrials(params.get('rounds')),seed,mode:getMode(params.get('mode')),runId:newRunId(),means:null,actions:[],pendingArm:null,selectedGuess:null,finalGuess:null,
     teacherOpen:false,teacherReveal:false,
-    draftTrials:getTrials(params.get('rounds')),draftSeed:seed,draftMode:getMode(params.get('mode')),draftGamma:getGamma(params.get('gamma')),draftRound:getRound(params.get('round')),priorRun:null,attempt:1,submitStatus:'idle',submitError:''};
+    draftTrials:getTrials(params.get('rounds')),draftSeed:seed,draftMode:getMode(params.get('mode')),draftGamma:getGamma(params.get('gamma')),draftRound:getRound(params.get('round')),draftPayoff:payoffSpecString(parsePayoffSpec(params.get('payoff'))),priorRun:null,attempt:1,submitStatus:'idle',submitError:''};
   const app=document.getElementById('app'),toastNode=document.getElementById('toast');
   let toastTimer=null;
   const esc=x=>String(x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -353,14 +367,14 @@
   function seededRandom(key){let a=hashString(key);a+=0x6D2B79F5;a=Math.imul(a^(a>>>15),a|1);a^=a+Math.imul(a^(a>>>7),a|61);return ((a^(a>>>14))>>>0)/4294967296;}
   // Noise shock: uniform on [-1, 1], scaled by γ at the call site. (Gaussian Box-Muller noise was used before v7.)
   function noiseShock(key){return 2*seededRandom(key+'|u')-1;}
-  function makeMeans(key,permKey=key){
+  function makeMeans(key,permKey=key,spec=state.payoff){
     // Randomize the values themselves, not just the letters receiving a fixed set.
     // `key` fixes the value set (so a class shares one difficulty level); `permKey` fixes which letter gets which value.
     // Constrain the top-two gap to 2-6 points so best-arm identification stays difficult.
-    // The best value is NOT fixed at 100; it varies from 92 to 100 by class session.
-    const top=92+Math.floor(seededRandom(key+'|top-value')*9);
-    const runner=top-(2+Math.floor(seededRandom(key+'|top-gap')*5));
-    const floor=Math.max(MIN_MEAN,runner-LOWER_SPREAD);
+    // The best value is NOT fixed at 100; it varies within [topMin, topMax] by session and round (default 92-100, gap 2-6, spread 12).
+    const top=spec.topMin+Math.floor(seededRandom(key+'|top-value')*(spec.topMax-spec.topMin+1));
+    const runner=top-(spec.gapMin+Math.floor(seededRandom(key+'|top-gap')*(spec.gapMax-spec.gapMin+1)));
+    let floor=Math.max(0,runner-spec.spread);if(runner-floor<3)floor=runner-3;
     const lowerPool=Array.from({length:runner-floor},(_,i)=>floor+i);
     // Draw three distinct lower means without replacement from [runner-12, runner-1].
     for(let i=lowerPool.length-1;i>0;i--){
@@ -459,11 +473,11 @@
   let labDb=null;
   function labFirestore(){if(labDb)return labDb;if(!firebaseReady())return null;try{if(!firebase.apps.length)firebase.initializeApp(LAB.firebaseConfig);labDb=firebase.firestore();}catch(err){labDb=null;}return labDb;}
   // Field order of the result code. dashboard.html parses codes with the same list; append new fields at the end only.
-  const CODE_FIELDS=['v','sessionKey','runId','name','mode','trials','gamma','attempt','finalPick','trueBest','correct','tauB','tauW','tauHat','tauLow','tauHigh','tauAtLow','tauAtHigh','pseudoR2','loss','nonGreedy','retested','paidPayoff','sequence','initialDraws','trueMeans','round'];
+  const CODE_FIELDS=['v','sessionKey','runId','name','mode','trials','gamma','attempt','finalPick','trueBest','correct','tauB','tauW','tauHat','tauLow','tauHigh','tauAtLow','tauAtHigh','pseudoR2','loss','nonGreedy','retested','paidPayoff','sequence','initialDraws','trueMeans','round','payoffSpec'];
   function resultRecord(){
     const f=softmaxFit();
     return {v:1,sessionKey:state.seed,runId:state.runId,name:nameLabel().slice(0,40),mode:state.mode,trials:state.trials,gamma:sig(),attempt:state.attempt,
-      round:state.round,finalPick:state.finalGuess,trueBest:trueBest(),correct:state.finalGuess===trueBest(),tauB:Number(tau().toFixed(4)),tauW:Number(weightedTau().toFixed(4)),
+      round:state.round,payoffSpec:payoffSpecString(state.payoff),finalPick:state.finalGuess,trueBest:trueBest(),correct:state.finalGuess===trueBest(),tauB:Number(tau().toFixed(4)),tauW:Number(weightedTau().toFixed(4)),
       tauHat:f?Number(f.tau.toFixed(4)):null,tauLow:f?Number(f.ciLow.toFixed(4)):null,tauHigh:f?Number(f.ciHigh.toFixed(4)):null,tauAtLow:!!(f&&f.atLow),tauAtHigh:!!(f&&f.atHigh),pseudoR2:f?Number(f.pseudoR2.toFixed(4)):null,
       loss:gap(),nonGreedy:exploratoryCount(),retested:coverage(),paidPayoff:totalPayoff(),sequence:state.actions.map(r=>r.arm).join(''),
       initialDraws:ARMS.map(a=>initialReward(a)).join(';'),trueMeans:ARMS.map(a=>state.means[a]).join(';')};
@@ -481,7 +495,7 @@
   }
   // ---- Live round control. dashboard.html writes bandit_settings/session; class links (?class=1) follow it. ----
   const SETTINGS_DOC='bandit_settings/session';
-  function applyLive(){const l=state.live;if(!l)return;if(l.sessionKey)state.seed=String(l.sessionKey).slice(0,80);state.round=getRound(l.round);state.gamma=getGamma(l.gamma);state.trials=getTrials(l.trials);state.mode=getMode(l.mode);}
+  function applyLive(){const l=state.live;if(!l)return;if(l.sessionKey)state.seed=String(l.sessionKey).slice(0,80);state.round=getRound(l.round);state.gamma=getGamma(l.gamma);state.trials=getTrials(l.trials);state.mode=getMode(l.mode);state.payoff=normPayoff(l.payoffs||PAYOFF_DEFAULT);}
   const startBlocked=()=>!!(state.live&&state.live.open===false);
   function liveStatus(){
     const l=state.live;if(!l)return '';
@@ -617,7 +631,7 @@
           <div class="tau-gauge"><div class="small-label">3 / Softmax temperature estimate (maximum likelihood)</div><div class="formula">P(choose i) = e<sup>m<sub>i</sub>/τ</sup> / Σ<sub>j</sub> e<sup>m<sub>j</sub>/τ</sup> &nbsp;⇒&nbsp; τ̂ = ${softTauFmt(f)}</div><div class="tau-track"><span class="tau-marker" style="left:${softTauPos(f)}%"></span></div><div class="tau-scale"><span>${TAU_GRID_MIN} · Greedy (log scale)</span><span>${TAU_GRID_MAX} · Random</span></div><p class="subtle" style="margin-top:9px">${softTauDesc(f)} m<sub>i</sub> is the pre-decision sample mean of technology i; τ is searched on a log grid from ${TAU_GRID_MIN} to ${TAU_GRID_MAX} payoff points.</p></div>
           <div class="note-technical" style="margin-top:19px"><strong>How to interpret:</strong> τb counts the frequency of choices below the current empirical leader. τw measures how far below that leader the chosen alternative appears. Both range from 0 to 1 and include the very first student decision. τ̂ is the exploration (temperature) parameter of the softmax choice rule used in bandit models of organizational learning: it is the value of τ that makes your observed sequence of ${state.trials} choices most likely, given the sample means you saw at each step.<br><br><strong>Important:</strong> τb and τw are descriptive; τ̂ is model-based and assumes a stationary softmax rule, which real students rarely follow exactly (many explore early and exploit late). None of the three measures decision quality: repeatedly choosing an obviously weak option raises all of them without improving identification. Compare students only under the same noise setting and the same session key.</div>
         </section>
-        <section class="card panel"><h2>The true payoff environment</h2><div class="subtle">Five distinct true means were randomly generated inside an 18-point band (best 92–100, runner-up 2–6 below, the rest within 12 points of the runner-up) and assigned to technologies before play. They never changed.</div>
+        <section class="card panel"><h2>The true payoff environment</h2><div class="subtle">Five distinct true means were randomly generated (${payoffText(state.payoff)}) and assigned to technologies before play. They never changed.</div>
           ${table()}<div class="result-explainer"><strong>Observed payoff = true mean + uniform noise on [−γ, γ]</strong><br>γ = ${sig()} points · True means: ${ARMS.map(a=>state.means[a]).slice().sort((a,b)=>a-b).join(', ')} (value set fixed by session key; ${RANDOMIZATION[state.mode].short.toLowerCase()}) · Five free initial observations + ${state.trials} discretionary tests. Every final sample mean includes its free observation.<br>Session key: ${esc(state.seed)} · Run ID: <strong>${state.runId}</strong> (reproduces every draw of this run)</div>
         </section>
       </div>
@@ -629,22 +643,23 @@
       <div style="margin-top:30px"><div class="eyebrow">Debrief questions</div><div class="questions"><div class="question"><b>01 / EVIDENCE</b>Was your highest observed sample mean attached to the true best technology?</div><div class="question"><b>02 / STRATEGY</b>Does a large τw indicate insightful exploration, or merely repeated tests of poor-performing options?</div><div class="question"><b>03 / OBJECTIVE</b>What would change if the task were to maximize total payoffs instead of identify the best technology?</div></div></div>
     </main>`;
   }
-  function classLink(trials=state.draftTrials,key=state.draftSeed,mode=state.draftMode,gamma=state.draftGamma,round=state.draftRound){
+  function classLink(trials=state.draftTrials,key=state.draftSeed,mode=state.draftMode,gamma=state.draftGamma,round=state.draftRound,payoff=state.draftPayoff){
     if(window.location.protocol==='file:')return '';
-    const url=new URL(window.location.href);url.search='';url.hash='';url.searchParams.set('rounds',String(trials));url.searchParams.set('seed',key.trim()||state.seed);url.searchParams.set('mode',mode);if(gamma!==GAMMA_DEFAULT)url.searchParams.set('gamma',String(gamma));if(round)url.searchParams.set('round',String(round));url.searchParams.set('class','1');return url.href;
+    const url=new URL(window.location.href);url.search='';url.hash='';url.searchParams.set('rounds',String(trials));url.searchParams.set('seed',key.trim()||state.seed);url.searchParams.set('mode',mode);if(gamma!==GAMMA_DEFAULT)url.searchParams.set('gamma',String(gamma));if(round)url.searchParams.set('round',String(round));if(payoff&&payoff!==payoffSpecString(PAYOFF_DEFAULT))url.searchParams.set('payoff',payoff);url.searchParams.set('class','1');return url.href;
   }
   function instructorDialog(){
     const key=state.draftSeed.trim()||state.seed;
     const link=classLink(state.draftTrials,key,state.draftMode);
-    const means=makeMeans(roundSeed(key,state.draftRound),roundSeed(key,state.draftRound));
+    const means=makeMeans(roundSeed(key,state.draftRound),roundSeed(key,state.draftRound),parsePayoffSpec(state.draftPayoff));
     const sortedVals=Object.values(means).slice().sort((a,b)=>b-a);
     return `<div class="overlay" id="modalBackdrop"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="teacher-title">
       <div class="modal-top"><div><div class="eyebrow">Instructor tools</div><h2 id="teacher-title">Configure your class game</h2></div><button type="button" class="close-btn" aria-label="Close" data-action="close-teacher">&times;</button></div>
-      <p class="subtle">The session key fixes the hidden <strong>set</strong> of five true means, so everyone in the class faces the same difficulty. Every student run then draws its own five free starting observations and its own payoff noise, so no two students (and no two replays) see the same numbers. Each results page and CSV carries a <strong>Run ID</strong> that reproduces that student's draws exactly.</p><p class="tiny" style="margin:9px 0 0"><strong>Difficulty:</strong> Five distinct hidden means are drawn for each session. The highest mean is between 92 and 100 (not always 100), the runner-up is 2–6 points below it, and the three weaker means lie within 12 points below the runner-up, so all five sit inside an 18-point band (never below 74). Means are then assigned to A–E. Individual observed payoffs can fall well outside that band because of noise. <strong>Starting trap:</strong> the five free starting observations are conditioned so that the true best technology never shows the highest starting value, so every student begins with a tempting wrong leader. Do not tell students this rule, or they will simply avoid the initial leader.</p><div class="divider"></div>
+      <p class="subtle">The session key fixes the hidden <strong>set</strong> of five true means, so everyone in the class faces the same difficulty. Every student run then draws its own five free starting observations and its own payoff noise, so no two students (and no two replays) see the same numbers. Each results page and CSV carries a <strong>Run ID</strong> that reproduces that student's draws exactly.</p><p class="tiny" style="margin:9px 0 0"><strong>Difficulty:</strong> Five distinct hidden means are drawn for each session and round from the true-payoff setting (currently ${payoffText(parsePayoffSpec(state.draftPayoff))}). A narrower gap and a smaller spread make identification harder. Means are then assigned to A–E. Individual observed payoffs can fall well outside that band because of noise. <strong>Starting trap:</strong> the five free starting observations are conditioned so that the true best technology never shows the highest starting value, so every student begins with a tempting wrong leader. Do not tell students this rule, or they will simply avoid the initial leader.</p><div class="divider"></div>
       <div class="teacher-third teacher-two">
         <div class="teacher-field"><label for="teacher-trials">TESTS PER GAME (5–60)</label><input id="teacher-trials" class="text-input" type="number" min="5" max="60" step="1" value="${state.draftTrials}"></div>
         <div class="teacher-field"><label for="teacher-gamma">NOISE ±γ (4–40)</label><input id="teacher-gamma" class="text-input" type="number" min="4" max="40" step="0.5" value="${state.draftGamma}"></div>
         <div class="teacher-field"><label for="teacher-round">ROUND (0 = none)</label><input id="teacher-round" class="text-input" type="number" min="0" max="99" step="1" value="${state.draftRound}"></div>
+        <div class="teacher-field"><label for="teacher-payoff">TRUE PAYOFFS: best min-max / gap min-max / spread</label><input id="teacher-payoff" class="text-input" spellcheck="false" placeholder="92-100/2-6/12" value="${esc(state.draftPayoff)}"></div>
         <div class="teacher-field"><label for="teacher-seed">SESSION KEY</label><input id="teacher-seed" class="text-input" maxlength="80" spellcheck="false" value="${esc(state.draftSeed)}"></div>
       </div>
       <div class="teacher-field teacher-wide"><label for="teacher-mode">RANDOMIZATION</label><select id="teacher-mode">${Object.entries(RANDOMIZATION).map(([v,x])=>`<option value="${v}" ${state.draftMode===v?'selected':''}>${x.label}</option>`).join('')}</select><p class="tiny" style="margin:8px 0 0">${state.draftMode==='shared'?'Same five means on the same letters for the whole class. Students can compare notes on letters, so the answer key below applies to everyone.':'Each run also shuffles which letter carries which mean, so a neighbor\'s "C is best" is useless. Noise is always independent per run.'}</p></div>
@@ -683,7 +698,7 @@
   function applyTeacher(){
     const key=state.draftSeed.trim();if(!key){toast('Enter a session key');return;}
     if(state.actions.length>0&&state.screen!=='home'&&!window.confirm('Changing settings will reset your current experiment. Continue?'))return;
-    state.trials=state.draftTrials;state.seed=key;state.mode=state.draftMode;state.gamma=state.draftGamma;state.round=state.draftRound;state.runId=newRunId();state.means=currentMeans();state.screen='home';state.phase='playing';state.actions=[];state.selectedGuess=null;state.finalGuess=null;state.teacherOpen=false;state.teacherReveal=false;render(true);toast('Class settings applied');
+    state.trials=state.draftTrials;state.seed=key;state.mode=state.draftMode;state.gamma=state.draftGamma;state.round=state.draftRound;state.payoff=parsePayoffSpec(state.draftPayoff);state.runId=newRunId();state.means=currentMeans();state.screen='home';state.phase='playing';state.actions=[];state.selectedGuess=null;state.finalGuess=null;state.teacherOpen=false;state.teacherReveal=false;render(true);toast('Class settings applied');
   }
   async function copyText(text){
     try{if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(text);toast('Copied to clipboard');return;}
@@ -725,6 +740,7 @@
     if(e.target.id==='teacher-trials'){state.draftTrials=getTrials(e.target.value);state.teacherReveal=false;render();}
     if(e.target.id==='teacher-gamma'){state.draftGamma=getGamma(e.target.value);state.teacherReveal=false;render();}
     if(e.target.id==='teacher-round'){state.draftRound=getRound(e.target.value);state.teacherReveal=false;render();}
+    if(e.target.id==='teacher-payoff'){state.draftPayoff=payoffSpecString(parsePayoffSpec(e.target.value));state.teacherReveal=false;render();}
     if(e.target.id==='teacher-mode'){state.draftMode=getMode(e.target.value);state.teacherReveal=false;render();}
   });
   document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if(state.teacherOpen){state.teacherOpen=false;render();}else if(state.pendingArm){state.pendingArm=null;render();}});
@@ -733,7 +749,7 @@
     const el=e.target.closest('[data-action]');if(!el)return;
     const action=el.dataset.action;
     if(action==='go-home'){e.preventDefault();if(state.screen==='home')return;if(state.actions.length&&!window.confirm('Leave this experiment? Current progress will be lost.'))return;state.screen='home';state.actions=[];state.pendingArm=null;state.phase='playing';state.finalGuess=null;render(true);}
-    else if(action==='teacher'){state.draftTrials=state.trials;state.draftGamma=state.gamma;state.draftRound=state.round;state.draftSeed=state.seed;state.draftMode=state.mode;state.teacherReveal=false;state.teacherOpen=true;render();}
+    else if(action==='teacher'){state.draftTrials=state.trials;state.draftGamma=state.gamma;state.draftRound=state.round;state.draftPayoff=payoffSpecString(state.payoff);state.draftSeed=state.seed;state.draftMode=state.mode;state.teacherReveal=false;state.teacherOpen=true;render();}
     else if(action==='close-teacher'){state.teacherOpen=false;state.teacherReveal=false;render();}
     else if(action==='start')start();
     else if(action==='invest'){if(state.screen==='game'&&state.phase==='playing'&&ARMS.includes(el.dataset.arm)){state.pendingArm=el.dataset.arm;render();}}
