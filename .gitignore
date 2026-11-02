@@ -1,0 +1,5 @@
+index_v6_backup.html
+*.py
+*.csv
+*.png
+.claude/

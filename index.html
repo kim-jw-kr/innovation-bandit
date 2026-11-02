@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f5f7f6">
+<meta name="description" content="Interactive best-arm identification game for innovation and strategy classes.">
+<title>Explore / Identify | Innovation Strategy Lab (v7)</title>
+<style>
+  :root {
+    --ink:#14252b; --muted:#64747a; --line:#dce5e3; --paper:#f5f7f6; --white:#fff;
+    --teal:#167c73; --teal-soft:#e5f4f0; --navy:#152b31; --blue:#496db4;
+    --orange:#d97a46; --purple:#7562ac; --green:#16816e; --red:#c95d55;
+    --shadow:0 14px 38px rgba(21,43,49,.055); --radius:21px;
+  }
+  *, *::before, *::after {box-sizing:border-box}
+  html {scroll-behavior:smooth}
+  body {margin:0; background:var(--paper); color:var(--ink); font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; line-height:1.5}
+  button,input {font:inherit}
+  button {cursor:pointer}
+  button:disabled {cursor:not-allowed}
+  button:focus-visible,input:focus-visible {outline:3px solid rgba(22,124,115,.36);outline-offset:3px}
+  .shell {max-width:1160px;margin:0 auto;padding:0 30px 56px}
+  header {display:flex;align-items:center;justify-content:space-between;gap:14px;padding:28px 0 26px;border-bottom:1px solid var(--line)}
+  .brand {display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--ink)}
+  .brand-mark {display:flex;align-items:flex-end;gap:4px;width:36px;height:36px;background:var(--navy);border-radius:11px;padding:9px}
+  .brand-mark i {display:block;background:#fff;border-radius:2px 2px 0 0;width:5px}
+  .brand-mark i:nth-child(1){height:11px}.brand-mark i:nth-child(2){height:18px;background:#62c6a9}.brand-mark i:nth-child(3){height:14px}
+  .brand-name{font-size:13px;font-weight:850;letter-spacing:.09em;line-height:1.2}
+  .brand-sub{font-size:10px;color:var(--muted);font-weight:750;letter-spacing:.09em}
+  .header-right {display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:flex-end}
+  .header-kicker {color:var(--muted);font-size:12px;font-weight:650}
+  .ghost-btn {border:1px solid var(--line);background:#fff;border-radius:11px;padding:10px 14px;color:var(--ink);font-size:12px;font-weight:800}
+  .ghost-btn:hover {border-color:#b2cac6;background:#fcfefd}
+  .eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.19em;font-weight:850;color:var(--teal)}
+  h1,h2,h3,p {margin-top:0}
+  .hero {display:grid;grid-template-columns:1.12fr .88fr;gap:43px;align-items:center;padding-top:56px}
+  .hero h1 {font-size:clamp(49px,6.5vw,86px);letter-spacing:-.068em;line-height:1.03;margin:15px 0 24px;font-weight:850}
+  .hero h1 em {font-style:normal;color:var(--teal)}
+  .lede {font-size:17px;max-width:550px;line-height:1.72;color:#586c70;margin-bottom:30px}
+  .mini-stats{display:flex;gap:9px;flex-wrap:wrap}
+  .pill{display:inline-flex;align-items:center;gap:7px;border:1px solid #d7e2e0;background:#fff;border-radius:50px;padding:8px 12px;font-size:11px;font-weight:750;color:#536a6d}
+  .pill strong{color:var(--ink)}
+  .signal {width:7px;height:7px;background:var(--green);border-radius:50%}
+  .hero-visual {border-radius:26px;background:#142c31;min-height:362px;padding:27px 26px 24px;position:relative;overflow:hidden;box-shadow:0 21px 55px rgba(20,44,49,.18);color:#fff}
+  .hero-visual:before {content:"";width:310px;height:310px;border:1px solid rgba(255,255,255,.09);border-radius:100%;position:absolute;top:-168px;right:-155px;box-shadow:0 0 0 55px rgba(255,255,255,.018),0 0 0 106px rgba(255,255,255,.018)}
+  .visual-head {display:flex;justify-content:space-between;gap:10px;align-items:center;font-size:10px;letter-spacing:.14em;color:#b2ccc9;font-weight:850;position:relative}
+  .visual-head span:last-child {color:#95d6bf}
+  .visual-title {position:relative;font-size:27px;line-height:1.19;letter-spacing:-.04em;font-weight:750;max-width:240px;margin:34px 0 25px}
+  .visual-grid {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;position:relative}
+  .visual-arm {background:rgba(255,255,255,.065);border:1px solid rgba(255,255,255,.12);border-radius:14px;text-align:center;padding:16px 5px 15px}
+  .visual-letter{font-weight:850;font-size:27px}.visual-question{margin-top:4px;color:#b4ccc7;font-size:13px;font-weight:700}
+  .visual-footer{display:flex;justify-content:space-between;align-items:center;border-top:1px solid rgba(255,255,255,.11);margin-top:26px;padding-top:16px;font-size:12px;color:#a9c7c2}
+  .visual-footer strong {color:#f6cd86;font-weight:700}
+  .card {border:1px solid var(--line);background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow)}
+  .setup {margin-top:38px;padding:28px 30px}
+  .section-head {display:flex;justify-content:space-between;gap:22px;align-items:start;margin-bottom:22px}
+  .section-head h2 {font-size:25px;letter-spacing:-.035em;line-height:1.2;margin:4px 0 8px}
+  .subtle {font-size:13px;color:var(--muted);line-height:1.65}
+  .setup-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .mode-card {text-align:left;background:#fff;border:1.5px solid var(--line);border-radius:15px;padding:18px;min-height:139px;display:block;color:var(--ink);width:100%;position:relative;transition:background .18s,border-color .18s,transform .18s}
+  .mode-card:hover:not(:disabled) {border-color:#7fbeb0;transform:translateY(-1px)}
+  .mode-card.selected{border-color:var(--teal);background:#f3fbf8;box-shadow:inset 0 0 0 1px var(--teal)}
+  .mode-card:disabled{opacity:.78}
+  .mode-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;gap:10px}
+  .mode-title {font-size:15px;font-weight:800}
+  .mode-icon {height:25px;width:25px;display:grid;place-items:center;border-radius:50%;background:#e8eeee;color:#496260;font-size:12px;font-weight:850}
+  .selected .mode-icon {background:var(--teal);color:#fff}
+  .mode-expl {font-size:12px;color:#667a7e;line-height:1.6;max-width:320px}
+  .setup-bottom{display:grid;grid-template-columns:1fr auto;align-items:end;gap:18px;margin-top:22px}
+  .input-label{display:block;font-size:11px;font-weight:850;color:#536a6d;margin-bottom:9px;letter-spacing:.04em}
+  .name-input,.text-input{height:48px;border:1px solid #d7e3e0;border-radius:11px;background:#fff;padding:0 14px;color:var(--ink);width:100%;max-width:420px;outline:none;font-size:13px}
+  .name-input:focus,.text-input:focus{border-color:var(--teal)}
+  .primary-btn {border:0;border-radius:12px;background:var(--teal);color:white;padding:14px 22px;font-size:13px;font-weight:850;display:inline-flex;align-items:center;justify-content:center;gap:11px;min-height:48px;white-space:nowrap;box-shadow:0 5px 12px rgba(22,124,115,.15);transition:transform .18s,background .18s}
+  .primary-btn:hover{background:#0c6159;transform:translateY(-1px)}
+  .primary-btn:disabled{opacity:.45;transform:none}
+  .secondary-btn{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:11px;padding:12px 17px;font-size:12px;font-weight:800;min-height:45px}
+  .secondary-btn:hover{background:#f5f9f7;border-color:#c1d3cf}
+  .step-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:28px 0 5px}
+  .step{padding:22px 21px;border-top:1px solid #dbe5e2;display:flex;gap:14px;align-items:start}
+  .step-num{color:var(--teal);font-size:11px;font-weight:850;letter-spacing:.05em;padding-top:3px}
+  .step strong{display:block;font-size:13px;margin-bottom:4px}.step span:last-child{font-size:12px;color:#718184;line-height:1.6}
+  footer {display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;border-top:1px solid var(--line);margin-top:35px;padding:21px 0 0;color:#7c8a8d;font-size:11px}
+  .game-intro{padding:29px 0 23px;display:flex;justify-content:space-between;gap:20px;align-items:end}
+  .game-intro h1{font-size:clamp(28px,3.9vw,43px);letter-spacing:-.052em;margin:6px 0 6px;line-height:1.13}
+  .status-badges{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+  .small-badge {border-radius:50px;border:1px solid #d7e4e1;padding:7px 10px;color:#45605d;background:white;font-size:10px;font-weight:800}
+  .small-badge.shock {color:#9b5b2f;background:#fff5eb;border-color:#f0d8bf}
+  .game-scorebar{padding:17px 21px;display:grid;grid-template-columns:130px minmax(0,1fr) 145px;align-items:center;gap:25px}
+  .small-label{font-size:10px;letter-spacing:.11em;color:var(--muted);text-transform:uppercase;font-weight:850}
+  .number-big{font-size:29px;letter-spacing:-.04em;font-weight:850;line-height:1.2;margin-top:5px}
+  .progress-track{height:9px;background:#e8efed;border-radius:20px;overflow:hidden;margin:12px 0 7px}
+  .progress-fill{height:100%;background:var(--teal);border-radius:20px;transition:width .23s ease}
+  .progress-between{display:flex;justify-content:space-between;color:#738384;font-size:10px;font-weight:700}
+  .evidence-head{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:33px 0 17px}
+  .evidence-head h2 {font-size:19px;letter-spacing:-.032em;margin:0}
+  .evidence-note{font-size:12px;color:#718083;max-width:520px}
+  .arms-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px}
+  .arm-card {min-width:0;border:1.5px solid var(--line);border-radius:18px;background:#fff;padding:19px;display:flex;flex-direction:column;gap:11px;min-height:252px;transition:border-color .15s,transform .15s,box-shadow .15s}
+  .arm-card.can-play:hover{transform:translateY(-3px);box-shadow:0 14px 28px rgba(13,56,52,.08);border-color:#9ccdc2}
+  .arm-card.chosen{border-color:var(--teal);background:#f3faf7}
+  .arm-top{display:flex;justify-content:space-between;align-items:center}
+  .arm-letter{width:38px;height:38px;display:grid;place-items:center;border-radius:12px;background:#ecf0f8;color:#3c5b9d;font-size:18px;font-weight:850}
+  .arm-B .arm-letter{background:#f3ecfb;color:#7556a0}.arm-C .arm-letter{background:#e6f4eb;color:#2c8a64}.arm-D .arm-letter{background:#fff1e3;color:#bb7637}
+  .arm-count{font-size:11px;color:#849093;font-weight:800}
+  .arm-title{font-size:14px;font-weight:850;margin-top:5px}
+  .arm-sub{font-size:11px;color:#819092}
+  .arm-observed{font-size:29px;font-weight:850;letter-spacing:-.05em;line-height:1.2}
+  .arm-observed small {font-size:11px;letter-spacing:0;font-weight:650;color:#829193;margin-left:5px}
+  .arm-bar{height:6px;background:#eef2f1;border-radius:9px;overflow:hidden}
+  .arm-bar div{height:100%;background:#6c9bb7;border-radius:9px;transition:width .25s}
+  .arm-B .arm-bar div{background:#a48cc4}.arm-C .arm-bar div{background:#77b799}.arm-D .arm-bar div{background:#e4b17d}
+  .arm-btn {margin-top:auto;padding:10px;border-radius:10px;background:#e7f3ef;border:0;color:#0b776c;font-size:11px;font-weight:850;width:100%;min-height:39px}
+  .arm-card.can-play .arm-btn:hover{background:#d7ece5}
+  .arm-btn:disabled{background:#edf1ef;color:#98a5a3}
+  .arm-latest{display:flex;justify-content:space-between;align-items:center;gap:6px;font-size:11px;color:#819092;line-height:1.3;border-top:1px dashed #e3ebe9;padding-top:9px}
+  .arm-latest em{font-style:normal;color:#a3afb1;font-size:10px}
+  .arm-latest strong{font-size:17px;color:var(--ink);font-weight:850;letter-spacing:-.02em;white-space:nowrap}
+  .arm-card.pending{border-color:var(--teal);background:#f3fbf8;box-shadow:0 0 0 3px rgba(22,124,115,.16)}
+  .arm-confirm{display:grid;grid-template-columns:1fr auto;gap:6px;margin-top:auto}
+  .arm-confirm .arm-btn{margin-top:0;background:var(--teal);color:#fff}
+  .arm-confirm .arm-btn:hover{background:#126a62}
+  .arm-cancel{padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:#fff;color:#56706d;font-size:12px;font-weight:800;min-height:39px}
+  .arm-cancel:hover{border-color:#b2cac6}
+  .evidence-note.pending-note{color:var(--teal);font-weight:800}
+  .section-row{display:flex;justify-content:space-between;gap:15px;align-items:center;flex-wrap:wrap}
+  .evidence-block{margin-top:22px;padding:23px 26px}
+  .evidence-block h3{font-size:16px;letter-spacing:-.025em;margin:0 0 4px}
+  .segmented {display:flex;gap:3px;border:1px solid #dce6e3;background:#f4f7f6;border-radius:10px;padding:3px}
+  .segment {border:0;background:transparent;color:#71817c;font-weight:750;font-size:11px;border-radius:7px;padding:7px 12px}
+  .segment.active{background:#fff;box-shadow:0 1px 5px rgba(25,50,45,.09);color:var(--ink)}
+  .evidence-matrix{margin-top:18px;display:grid;grid-template-columns:repeat(4,1fr);gap:11px}
+  .matrix-cell{background:#f6f9f8;border-radius:12px;padding:13px 14px;min-width:0}
+  .matrix-cell label{display:block;font-size:10px;color:#687c7d;font-weight:800;margin-bottom:6px}
+  .matrix-cell strong{font-size:14px}.matrix-cell span{display:block;font-size:10px;color:#8c9c9b;margin-top:2px}
+  .feedback{margin-top:22px;border-radius:18px;padding:24px;display:flex;gap:22px;justify-content:space-between;align-items:center;background:var(--navy);color:white}
+  .feedback.fail{background:#3d424c}
+  .feedback-eyebrow{font-size:10px;letter-spacing:.14em;font-weight:850;color:#9ed7c8}
+  .feedback.fail .feedback-eyebrow{color:#c7d1d2}
+  .feedback h2{font-size:23px;letter-spacing:-.04em;margin:5px 0}
+  .feedback p{font-size:12px;color:#c9dbd7;margin:0;max-width:540px}
+  .feedback.fail p{color:#dae0e0}
+  .feedback .primary-btn {background:white;color:var(--navy);box-shadow:none}
+  .feedback .primary-btn:hover {background:#e7f2ef}
+  .reflection-prompt{font-size:12px;color:#81908f;margin:20px 2px 0}
+  .shock-screen{max-width:770px;margin:62px auto 40px;text-align:center}
+  .shock-glyph{width:95px;height:95px;border-radius:27px;background:#fff1e8;color:#c26830;display:grid;place-items:center;font-size:42px;font-weight:850;margin:0 auto 24px;box-shadow:inset 0 0 0 1px #f0d3bb}
+  .shock-screen h1{font-size:clamp(35px,6vw,61px);letter-spacing:-.055em;line-height:1.05;margin:12px 0 22px}
+  .shock-screen p{color:#657779;font-size:16px;line-height:1.8;max-width:620px;margin:0 auto 25px}
+  .shock-advice{max-width:630px;background:white;border:1px solid var(--line);border-radius:16px;padding:20px;margin:24px auto;color:#536b68;font-size:13px;text-align:left}
+  .shock-advice strong{display:block;color:var(--ink);margin-bottom:6px}
+  .results-hero{padding:48px 0 25px}
+  .results-hero h1{font-size:clamp(40px,6.4vw,71px);letter-spacing:-.06em;margin:10px 0 15px;line-height:1.08}
+  .results-hero h1 em{font-style:normal;color:var(--teal)}
+  .results-hero p{font-size:15px;color:#718184;max-width:690px;line-height:1.7}
+  .metrics-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
+  .metric{padding:22px 20px;min-width:0}
+  .metric strong{display:block;font-size:clamp(24px,2.9vw,36px);letter-spacing:-.05em;margin:8px 0 4px;line-height:1.15;overflow-wrap:anywhere}
+  .metric span:last-child{font-size:11px;color:#788a88;line-height:1.5;display:block}
+  .results-grid{display:grid;grid-template-columns:1.26fr .74fr;gap:16px;margin-top:16px}
+  .panel{padding:25px 26px}
+  .panel h2{font-size:18px;letter-spacing:-.025em;margin:0 0 5px}
+  .chart-wrap{margin-top:16px}
+  .chart-wrap svg{display:block;width:100%;height:auto}
+  .chart-legend{display:flex;gap:18px;flex-wrap:wrap;margin:10px 0 0;font-size:11px;font-weight:750;color:#637678}
+  .legend-line{display:inline-block;width:25px;height:3px;vertical-align:middle;margin-right:8px;border-radius:4px;background:var(--teal)}
+  .legend-line.oracle{background:repeating-linear-gradient(to right,#9da9a7 0 5px,transparent 5px 9px)}
+  .prob-table{width:100%;border-collapse:collapse;margin-top:17px;font-size:12px}
+  .prob-table th{text-align:left;color:#82908c;font-size:10px;letter-spacing:.04em;font-weight:800;padding:10px 4px;border-bottom:1px solid #e4ece9}
+  .prob-table td{padding:10px 4px;border-bottom:1px solid #edf0ef}
+  .prob-table td:not(:first-child){font-weight:800}
+  .prob-table .winner{color:var(--teal)}
+  .tiny{font-size:10px;color:#899893;line-height:1.65}
+  .result-explainer{margin-top:16px;border-radius:12px;background:#edf7f3;padding:15px 16px;font-size:12px;color:#436861;line-height:1.65}
+  .round-log{margin-top:16px}
+  .round-log h2{font-size:18px;letter-spacing:-.03em}
+  .round-pills{display:grid;grid-template-columns:repeat(10,1fr);gap:7px;margin-top:17px}
+  .round-pill{border-radius:10px;background:#f2f6f5;border:1px solid #e6edeb;padding:10px 4px;text-align:center;font-size:10px}
+  .round-pill.success{background:#ecf7ef;border-color:#d4eade}.round-pill.failure{background:#fbf1ef;border-color:#f4ded9}
+  .round-pill .round-no{font-size:9px;color:#8a9b99}
+  .round-pill .round-arm{font-size:15px;font-weight:850;margin:3px 0}
+  .round-pill .round-payoff{font-size:10px;font-weight:850;color:#4a7162}
+  .round-pill.failure .round-payoff{color:#a66b67}
+  .results-actions{display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin-top:25px}
+  .questions{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:19px}
+  .question{border-top:1px solid #d8e4e0;padding:18px 8px 0 0;font-size:12px;color:#51696b;line-height:1.65}
+  .question b{display:block;color:var(--teal);font-size:10px;letter-spacing:.11em;margin-bottom:7px}
+  .overlay{position:fixed;z-index:100;inset:0;background:rgba(8,28,32,.56);display:flex;justify-content:center;align-items:center;padding:24px;overflow:auto}
+  .modal{width:100%;max-width:680px;max-height:calc(100dvh - 48px);overflow:auto;background:white;border-radius:23px;padding:29px;box-shadow:0 24px 80px rgba(0,0,0,.23)}
+  .modal-top{display:flex;justify-content:space-between;align-items:center;gap:15px}
+  .modal h2{font-size:26px;letter-spacing:-.04em;margin:8px 0 5px}
+  .close-btn {border:1px solid #e0e9e6;background:#fff;width:35px;height:35px;border-radius:10px;font-size:19px;line-height:1;color:#57706d}
+  .divider{height:1px;background:#e5eeeb;margin:21px 0}
+  .teacher-row{display:grid;grid-template-columns:1fr 1fr;gap:15px}
+  .teacher-field label{display:block;font-size:11px;font-weight:850;color:#566c6e;margin-bottom:8px}
+  .teacher-field select{width:100%;height:46px;padding:0 12px;border-radius:11px;background:white;border:1px solid #d7e3e0;color:var(--ink);font:inherit;font-size:13px}
+  .teacher-field .text-input{max-width:none;height:46px}
+  .link-box{background:#f4f8f6;border-radius:11px;padding:13px 14px;word-break:break-all;font-size:11px;color:#54716e;border:1px solid #dceae4;min-height:49px}
+  .teacher-truth{width:100%;border-collapse:collapse;font-size:12px;margin-top:12px}
+  .teacher-truth th,.teacher-truth td{text-align:left;padding:9px 12px;border-bottom:1px solid #edf0ef}
+  .teacher-truth th{font-size:10px;color:#788c89}
+  .note{padding:13px 15px;border-radius:11px;background:#fff8ea;border:1px solid #f5e7cb;font-size:11px;color:#856935;line-height:1.65}
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(12px);background:#19372f;color:#fff;font-size:12px;font-weight:700;z-index:150;border-radius:11px;padding:12px 19px;box-shadow:0 9px 30px rgba(0,0,0,.18);opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;max-width:calc(100vw - 30px);text-align:center}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+  @media(max-width:850px){
+    .hero{grid-template-columns:1fr;gap:24px;padding-top:38px}.hero-visual{min-height:300px}
+    .hero h1{font-size:clamp(48px,10vw,78px)}
+    .arms-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .results-grid{grid-template-columns:1fr}
+    .metrics-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .round-pills{grid-template-columns:repeat(10,1fr)}
+  }
+  @media(max-width:600px){
+    .shell{padding:0 16px 30px}header{padding:18px 0}.header-kicker{display:none}
+    .hero h1{font-size:48px}.lede{font-size:15px}.hero-visual{padding:22px;min-height:310px}
+    .setup{margin-top:25px;padding:21px 18px}.setup-grid{grid-template-columns:1fr}.mode-card{min-height:105px;padding:15px}
+    .setup-bottom{grid-template-columns:1fr}.setup-bottom .primary-btn{width:100%}
+    .step-row{grid-template-columns:1fr;gap:0;margin-top:23px}.step{padding:15px 6px}
+    .game-intro{align-items:start;flex-direction:column;padding:26px 0 17px}.status-badges{justify-content:flex-start}
+    .game-scorebar{grid-template-columns:1fr 1fr;gap:14px;padding:18px}.game-scorebar .progress-col{grid-column:1/-1;grid-row:2}
+    .arms-grid{gap:9px}.arm-card{padding:15px 12px;min-height:240px}.arm-observed{font-size:25px}
+    .evidence-block{padding:20px 16px}.evidence-matrix{grid-template-columns:repeat(2,1fr)}
+    .evidence-head{align-items:start;flex-direction:column;gap:4px}.feedback{flex-direction:column;align-items:stretch;padding:20px}.feedback .primary-btn{width:100%}
+    .metrics-grid{grid-template-columns:repeat(2,1fr)}.metric{padding:19px 15px}.panel{padding:20px 17px}
+    .round-pills{grid-template-columns:repeat(5,1fr)}.questions{grid-template-columns:1fr;gap:8px}.weight-example{grid-template-columns:1fr}
+    .results-hero{padding:32px 0 17px}.teacher-row{grid-template-columns:1fr}.modal{padding:22px}
+    footer{margin-top:24px}
+  }
+  @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+
+  .initial-evidence{margin-top:18px;padding:19px 22px;background:#eef7f4;border:1px solid #cce4dc;border-radius:17px}
+  .initial-head{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:13px}
+  .initial-head strong{font-size:13px;color:#245b51}
+  .initial-head span{font-size:11px;color:#58746c;line-height:1.5}
+  .initial-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+  .initial-item{border:1px solid #d4e8e0;border-radius:10px;padding:10px 12px;background:#fff;min-width:0}
+  .initial-item span{display:block;color:#6c807b;font-size:10px;font-weight:800;letter-spacing:.04em}
+  .initial-item strong{display:block;color:#215e54;font-size:20px;letter-spacing:-.035em;margin-top:3px}
+  @media(max-width:600px){.initial-evidence{padding:14px 12px}.initial-grid{gap:5px}.initial-item{padding:9px 5px;text-align:center}.initial-item strong{font-size:17px}.initial-item span{font-size:9px}}
+  .visual-grid{grid-template-columns:repeat(5,minmax(0,1fr));gap:7px}
+  .visual-footer{gap:12px;flex-wrap:wrap}
+  .setup-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  @media(max-width:850px){.setup-grid{grid-template-columns:1fr}}
+  .visual-arm{padding:15px 3px 13px}
+  .arms-grid{grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+  .arm-card{padding:16px 13px;min-height:237px;gap:10px}
+  .arm-E .arm-letter{background:#fbedee;color:#be6d75}
+  .arm-E .arm-bar div{background:#ce8f96}
+  .arm-observed{font-size:27px}
+  .arm-sub{line-height:1.45}
+  .arm-btn{padding:10px 3px}
+  .evidence-matrix{grid-template-columns:repeat(5,minmax(0,1fr))}
+  .game-scorebar{grid-template-columns:145px minmax(0,1fr) 140px}
+  .result-explainer{line-height:1.8}
+  .feedback{scroll-margin-top:18px}
+  .comparison{display:grid;gap:15px;margin-top:20px}
+  .comparison-line{display:grid;grid-template-columns:34px 1fr 44px;gap:12px;align-items:center}
+  .comparison-letter{font-weight:850;font-size:15px}
+  .comparison-bars{display:flex;flex-direction:column;gap:4px}
+  .comparison-track{height:10px;border-radius:10px;background:#eef2f1;overflow:hidden}
+  .comparison-track div{height:100%;border-radius:10px;background:#5c9f96}
+  .comparison-track.empirical div{background:#9dacb4}
+  .comparison-values{font-size:11px;color:#647a7c;text-align:right;font-variant-numeric:tabular-nums}
+  .legend-box{display:flex;gap:17px;font-size:11px;color:#73847f;margin-top:19px;flex-wrap:wrap}
+  .legend-dot{display:inline-block;width:9px;height:9px;border-radius:3px;background:#5c9f96;margin-right:6px}
+  .legend-dot.empirical{background:#9dacb4}
+  .final-banner{padding:25px 0 14px}
+  .final-banner h1{font-size:clamp(35px,5vw,61px);letter-spacing:-.055em;line-height:1.08;margin:8px 0 14px}
+  .final-choice-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:11px}
+  .final-choice{border:1.5px solid var(--line);background:#fff;padding:20px 12px;border-radius:17px;min-height:160px;text-align:left;color:var(--ink);transition:border-color .18s,background .18s}
+  .final-choice:hover{border-color:#85b9ac}
+  .final-choice.selected{border-color:var(--teal);background:#eaf7f2;box-shadow:inset 0 0 0 1px var(--teal)}
+  .final-choice .letter{font-size:32px;display:block;font-weight:850;margin:0 0 9px}
+  .final-choice .summary{display:block;font-size:12px;color:#72827e}
+  .final-choice .summary strong{color:#344b48}
+  .final-actions{display:flex;gap:15px;align-items:center;flex-wrap:wrap;margin-top:23px}
+  .final-choice[aria-pressed="true"]{outline-offset:3px}
+  .tau-gauge{margin-top:18px}
+  .tau-gauge + .tau-gauge{margin-top:25px;padding-top:22px;border-top:1px solid #e0eae6}
+  .weight-example{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:15px}
+  .weight-example div{background:#f4f8f7;border:1px solid #e2eae7;padding:12px;border-radius:10px;font-size:12px;line-height:1.5;color:#58726e}
+  .weight-example strong{display:block;color:#25463f;font-size:16px;margin-bottom:3px}
+  .round-pill .round-weight{font-size:9px;color:#456e8b;font-weight:700;margin-top:3px}
+  .tau-track{height:14px;border-radius:18px;background:linear-gradient(90deg,#a9c0cb 0%,#75b29e 52%,#2e9182 100%);position:relative;margin:15px 5px 8px}
+  .tau-marker{position:absolute;top:-6px;left:0;width:4px;height:26px;background:#172e31;transform:translateX(-2px);border-radius:2px;box-shadow:0 0 0 3px #fff}
+  .tau-scale{display:flex;justify-content:space-between;font-size:11px;color:#647b7a}
+  .note-technical{background:#f5f9f7;border-radius:12px;border:1px solid #e0eae6;padding:15px 17px;color:#556e6c;font-size:12px;line-height:1.75}
+  .formula{font-size:18px;font-weight:780;color:#19352f;letter-spacing:-.01em}
+  .teacher-third{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+  .teacher-wide{margin-top:12px}
+  .teacher-two{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .noise-note{display:flex;gap:12px;align-items:flex-start;border:1.5px solid var(--line);border-radius:15px;padding:16px 18px;font-size:13px;line-height:1.6;color:#586c70;background:#fbfdfc}
+  .noise-note .mode-icon{flex:none;background:var(--teal);color:#fff;font-size:14px;margin-top:2px}
+  .formula sub,.formula sup{font-size:11px}
+  .teacher-third select{width:100%;height:46px;padding:0 9px;border-radius:11px;background:#fff;border:1px solid #d7e3e0;color:var(--ink);font-size:12px}
+  .summary-note{padding:18px 20px;border-radius:14px;background:#e9f5ef;color:#245b4f;font-size:13px;line-height:1.65}
+  .summary-note.incorrect{background:#fff3ea;color:#8c5835}
+  .round-pill.explore{border:1px solid #a3d3c3;background:#eaf8f3}
+  .round-pill .round-payoff{color:#4b7670}
+  .round-pill .label-tau{font-size:9px;letter-spacing:.02em;color:#398270;font-weight:800;margin-top:5px}
+  .question{min-height:78px}
+  .small-math{font-family:Georgia,serif;font-style:italic}
+  @media(max-width:1050px){.arms-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.evidence-matrix{grid-template-columns:repeat(3,minmax(0,1fr))}}
+  @media(max-width:740px){.arms-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.evidence-matrix{grid-template-columns:repeat(2,minmax(0,1fr))}.final-choice-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+  @media(max-width:600px){.hero-visual{min-height:300px}.visual-grid{gap:5px}.visual-arm{padding:14px 0 12px}.visual-letter{font-size:24px}.visual-title{font-size:24px;margin-top:20px}.arm-card{min-height:218px}.final-choice-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.final-choice{min-height:135px;padding:15px}.teacher-third{grid-template-columns:1fr}.game-scorebar{grid-template-columns:1fr 1fr}.comparison-line{grid-template-columns:28px 1fr 38px;gap:8px}}
+  .dash-status{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:17px;border:1.5px solid var(--teal);background:var(--teal-soft);border-radius:15px;padding:14px 18px;font-size:14px;line-height:1.55;color:var(--ink)}
+  .dash-status.pending{border-color:var(--line);background:var(--white)}
+  .dash-status code{font-family:ui-monospace,Consolas,monospace;font-size:12px;background:var(--paper);padding:2px 6px;border-radius:6px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<script src="https://www.gstatic.com/firebasejs/12.3.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore-compat.js"></script>
+<script src="config.js"></script>
+<script>
+
+(() => {
+  'use strict';
+  const ARMS=['A','B','C','D','E'];
+  const MIN_MEAN=70, MAX_MEAN=100; // Hidden true means are randomly drawn per class session.
+  const LOWER_SPREAD=12; // The three weaker means lie within 12 points below the runner-up, so all five sit in an 18-point band.
+  const EXPLORATION_GAP_SCALE_SD=2; // A gap of 2γ (twice the noise half-width) receives maximum weight.
+  const FREE_INITIAL_SAMPLES=1; // One shared, noisy observation per technology before students choose.
+  const NOISE={low:{label:'Noise ±12',sigma:12}}; // Uniform noise on [-γ, γ] with γ = 12 (stored as `sigma`). Fixed; see README, 'Noise level'.
+  // Randomization scope. The session key always fixes the SET of five true means; noise draws are always per student run.
+  const RANDOMIZATION={student:{label:'Independent per student (letters shuffled per run)',short:'Letters shuffled per run'},shared:{label:'Shared class assignment (same letters for everyone)',short:'Shared letter assignment'}};
+  const TAU_GRID_MIN=0.05, TAU_GRID_MAX=500, TAU_GRID_N=600; // Log-spaced grid for the softmax temperature MLE.
+  const ROUNDS=[20,30,40];
+  const params=new URLSearchParams(window.location.search);
+  const getNoise=()=>'low'; // Only one level exists; any ?noise= parameter is ignored.
+  const getTrials=(x)=>ROUNDS.includes(Number(x))?Number(x):20; // Default budget: 20 trials (30 and 40 remain selectable).
+  const getMode=(x)=>Object.hasOwn(RANDOMIZATION,x)?x:'student';
+  // A fresh run ID is drawn from the browser's CSPRNG at every game start, so no two students (or replays) share noise draws.
+  function newRunId(){const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let out='';if(window.crypto&&crypto.getRandomValues){const buf=new Uint32Array(8);crypto.getRandomValues(buf);for(const b of buf)out+=alphabet[b%alphabet.length];}else{for(let i=0;i<8;i++)out+=alphabet[Math.floor(Math.random()*alphabet.length)];}return out;}
+  const classroom=params.get('class')==='1';
+  const seed=(params.get('seed')||'SNU-INNOVATION-2026').slice(0,80);
+  const state={screen:'home',phase:'playing',name:'',classroom,noise:getNoise(),
+    trials:getTrials(params.get('rounds')),seed,mode:getMode(params.get('mode')),runId:newRunId(),means:null,actions:[],pendingArm:null,selectedGuess:null,finalGuess:null,
+    teacherOpen:false,teacherReveal:false,
+    draftTrials:getTrials(params.get('rounds')),draftSeed:seed,draftMode:getMode(params.get('mode')),priorRun:null,attempt:1,submitStatus:'idle',submitError:''};
+  const app=document.getElementById('app'),toastNode=document.getElementById('toast');
+  let toastTimer=null;
+  const esc=x=>String(x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const fmt=x=>Number(x).toLocaleString('en-US',{maximumFractionDigits:0});
+  const signed=x=>(x>0?'+':'')+fmt(x);
+  const meanFmt=x=>x===null?'--':Number(x).toFixed(1);
+  const tauFmt=x=>x.toFixed(2);
+  function hashString(str){let h=2166136261;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0;}
+  function seededRandom(key){let a=hashString(key);a+=0x6D2B79F5;a=Math.imul(a^(a>>>15),a|1);a^=a+Math.imul(a^(a>>>7),a|61);return ((a^(a>>>14))>>>0)/4294967296;}
+  // Noise shock: uniform on [-1, 1], scaled by γ at the call site. (Gaussian Box-Muller noise was used before v7.)
+  function noiseShock(key){return 2*seededRandom(key+'|u')-1;}
+  function makeMeans(key,permKey=key){
+    // Randomize the values themselves, not just the letters receiving a fixed set.
+    // `key` fixes the value set (so a class shares one difficulty level); `permKey` fixes which letter gets which value.
+    // Constrain the top-two gap to 2-6 points so best-arm identification stays difficult.
+    // The best value is NOT fixed at 100; it varies from 92 to 100 by class session.
+    const top=92+Math.floor(seededRandom(key+'|top-value')*9);
+    const runner=top-(2+Math.floor(seededRandom(key+'|top-gap')*5));
+    const floor=Math.max(MIN_MEAN,runner-LOWER_SPREAD);
+    const lowerPool=Array.from({length:runner-floor},(_,i)=>floor+i);
+    // Draw three distinct lower means without replacement from [runner-12, runner-1].
+    for(let i=lowerPool.length-1;i>0;i--){
+      const j=Math.floor(seededRandom(key+'|lower-value|'+i)*(i+1));
+      [lowerPool[i],lowerPool[j]]=[lowerPool[j],lowerPool[i]];
+    }
+    const values=[top,runner,...lowerPool.slice(0,3)];
+    // Independently shuffle the five values across A-E.
+    for(let i=values.length-1;i>0;i--){
+      const j=Math.floor(seededRandom(permKey+'|permute|'+i)*(i+1));
+      [values[i],values[j]]=[values[j],values[i]];
+    }
+    return Object.fromEntries(ARMS.map((a,i)=>[a,values[i]]));
+  }
+  const permKeyFor=(key=state.seed,mode=state.mode,runId=state.runId)=>mode==='shared'?key:key+'|run|'+runId;
+  const currentMeans=()=>makeMeans(state.seed,permKeyFor());
+  state.means=currentMeans();
+  const trueBest=(means=state.means)=>ARMS.reduce((x,y)=>means[x]>means[y]?x:y);
+  const sig=()=>NOISE[state.noise].sigma;
+  // All noise is keyed on session key + run ID: every student run (and every replay) gets its own independent draws.
+  const noiseKey=()=>state.seed+'|run|'+state.runId;
+  function reward(arm,pullIndex){return Math.round(state.means[arm]+sig()*noiseShock(noiseKey()+'|outcome|'+arm+'|'+pullIndex));}
+  // Free starting observations are drawn per run and then CONDITIONED so that the true best technology never shows the
+  // highest starting value: attempt k is accepted as soon as some other technology's free draw strictly exceeds the best
+  // one's. Every student therefore starts with a tempting wrong leader. Instructors should not disclose this rule.
+  const INITIAL_MAX_ATTEMPTS=500;
+  let initialCache={key:null,draws:null};
+  function initialDraws(){
+    const key=noiseKey()+'|'+state.noise+'|'+state.mode;
+    if(initialCache.key===key)return initialCache.draws;
+    const best=trueBest();let draws=null;
+    for(let k=0;k<INITIAL_MAX_ATTEMPTS;k++){
+      draws=Object.fromEntries(ARMS.map(a=>[a,Math.round(state.means[a]+sig()*noiseShock(noiseKey()+'|initial|'+k+'|'+a))]));
+      if(ARMS.some(a=>a!==best&&draws[a]>draws[best]))break;
+    }
+    initialCache={key,draws};return draws;
+  }
+  function initialReward(arm){return initialDraws()[arm];}
+  // Sample means include the free initial observation plus every paid experiment.
+  function aggregate(records,arm){
+    const v=records.filter(r=>r.arm===arm),initial=initialReward(arm);
+    const total=initial+v.reduce((sum,r)=>sum+r.reward,0);
+    const allValues=[initial,...v.map(r=>r.reward)];
+    return {n:FREE_INITIAL_SAMPLES+v.length,paid:v.length,initial,total,
+      avg:total/(FREE_INITIAL_SAMPLES+v.length),last:allValues[allValues.length-1],
+      min:Math.min(...allValues),max:Math.max(...allValues)};
+  }
+  // The five initial signals are free and must not enter any trial budget or cash total.
+  const totalPayoff=()=>state.actions.reduce((sum,r)=>sum+r.reward,0);
+  const coverage=()=>ARMS.filter(a=>state.actions.some(r=>r.arm===a)).length;
+  const exploratoryCount=()=>state.actions.filter(r=>r.exploratory===true).length;
+  const tau=()=>state.trials?exploratoryCount()/state.trials:0;
+  // Only information available BEFORE each student decision enters behavioral indices.
+  const weightedSum=()=>state.actions.reduce((total,r)=>total+(r.explorationWeight??0),0);
+  const weightedTau=()=>state.trials?weightedSum()/state.trials:0;
+  const weightFmt=x=>x===null?'--':Number(x).toFixed(2);
+  // Softmax temperature MLE. Choice model: P(choose i | pre-decision sample means m) = exp(m_i/tau) / sum_j exp(m_j/tau).
+  // tau -> 0 reproduces the greedy rule; large tau approaches uniform random choice. tau is measured in payoff points.
+  function logLik(tau){
+    let ll=0;
+    for(const r of state.actions){
+      const m=r.meansBefore;if(!m)continue;
+      const mx=Math.max(...ARMS.map(b=>m[b]));
+      const denom=ARMS.reduce((sum,b)=>sum+Math.exp((m[b]-mx)/tau),0);
+      ll+=(m[r.arm]-mx)/tau-Math.log(denom);
+    }
+    return ll;
+  }
+  function softmaxFit(){
+    const T=state.actions.length;if(!T)return null;
+    const grid=Array.from({length:TAU_GRID_N},(_,i)=>TAU_GRID_MIN*Math.pow(TAU_GRID_MAX/TAU_GRID_MIN,i/(TAU_GRID_N-1)));
+    const lls=grid.map(logLik);
+    let best=0;for(let i=1;i<grid.length;i++)if(lls[i]>lls[best])best=i;
+    const inside=grid.filter((_,i)=>lls[i]>=lls[best]-1.9207); // 95% profile-likelihood interval (chi-square(1)/2)
+    const llUniform=-T*Math.log(ARMS.length);
+    const allGreedy=state.actions.every(r=>r.exploratory!==true);
+    return {tau:grid[best],ll:lls[best],ciLow:inside[0],ciHigh:inside[inside.length-1],atLow:allGreedy||best===0,atHigh:best===grid.length-1,
+      llUniform,pseudoR2:Math.max(0,1-lls[best]/llUniform),T};
+  }
+  const tauPoint=x=>x<10?x.toFixed(2):x.toFixed(1);
+  const softTauFmt=f=>!f?'--':f.atLow?'< '+TAU_GRID_MIN:f.atHigh?'> '+TAU_GRID_MAX:tauPoint(f.tau);
+  const softTauCi=f=>!f||f.atLow||f.atHigh?'':`${f.ciLow<=TAU_GRID_MIN?'< '+TAU_GRID_MIN:tauPoint(f.ciLow)} to ${f.ciHigh>=TAU_GRID_MAX?'> '+TAU_GRID_MAX:tauPoint(f.ciHigh)}`;
+  const softTauPos=f=>!f?0:Math.max(0,Math.min(100,Math.round(100*Math.log(f.tau/TAU_GRID_MIN)/Math.log(TAU_GRID_MAX/TAU_GRID_MIN))));
+  function softTauDesc(f){
+    if(!f)return '';
+    if(f.atLow)return 'Every choice followed the current sample-mean leader, so the likelihood keeps rising as τ → 0. Your behavior is indistinguishable from a pure greedy rule; only an upper bound on τ is identified.';
+    if(f.atHigh)return 'Your choices were not attracted to the current sample-mean leader at all (you repeatedly picked technologies far below it), so the softmax likelihood keeps rising as τ grows. The data cannot distinguish very large τ from random choice; only a lower bound on τ is identified.';
+    return `τ̂ is in payoff points: a technology whose pre-decision sample mean trailed the leader by about ${tauPoint(f.tau)} points was chosen roughly e<sup>−1</sup> ≈ 37% as often as the leader. 95% profile-likelihood interval: ${softTauCi(f)}. Fit relative to random choice (McFadden pseudo-R²): ${f.pseudoR2.toFixed(2)}.`;
+  }
+  const gap=()=>state.means[trueBest()]-state.means[state.finalGuess];
+  const nameLabel=()=>state.name.trim()||'Anonymous';
+  // ---- Class dashboard (dashboard.html). Live submission needs Firebase settings in config.js; otherwise students copy a result code. ----
+  const LAB=window.LAB_CONFIG||{};
+  const firebaseReady=()=>typeof firebase!=='undefined'&&LAB.firebaseConfig&&!/PASTE/.test(LAB.firebaseConfig.apiKey||'');
+  let labDb=null;
+  function labFirestore(){if(labDb)return labDb;if(!firebaseReady())return null;try{if(!firebase.apps.length)firebase.initializeApp(LAB.firebaseConfig);labDb=firebase.firestore();}catch(err){labDb=null;}return labDb;}
+  // Field order of the result code. dashboard.html parses codes with the same list; append new fields at the end only.
+  const CODE_FIELDS=['v','sessionKey','runId','name','mode','trials','gamma','attempt','finalPick','trueBest','correct','tauB','tauW','tauHat','tauLow','tauHigh','tauAtLow','tauAtHigh','pseudoR2','loss','nonGreedy','retested','paidPayoff','sequence','initialDraws','trueMeans'];
+  function resultRecord(){
+    const f=softmaxFit();
+    return {v:1,sessionKey:state.seed,runId:state.runId,name:nameLabel().slice(0,40),mode:state.mode,trials:state.trials,gamma:sig(),attempt:state.attempt,
+      finalPick:state.finalGuess,trueBest:trueBest(),correct:state.finalGuess===trueBest(),tauB:Number(tau().toFixed(4)),tauW:Number(weightedTau().toFixed(4)),
+      tauHat:f?Number(f.tau.toFixed(4)):null,tauLow:f?Number(f.ciLow.toFixed(4)):null,tauHigh:f?Number(f.ciHigh.toFixed(4)):null,tauAtLow:!!(f&&f.atLow),tauAtHigh:!!(f&&f.atHigh),pseudoR2:f?Number(f.pseudoR2.toFixed(4)):null,
+      loss:gap(),nonGreedy:exploratoryCount(),retested:coverage(),paidPayoff:totalPayoff(),sequence:state.actions.map(r=>r.arm).join(''),
+      initialDraws:ARMS.map(a=>initialReward(a)).join(';'),trueMeans:ARMS.map(a=>state.means[a]).join(';')};
+  }
+  function resultCode(){const r=resultRecord();return 'IDLAB1|'+CODE_FIELDS.map(k=>{const v=r[k];return v===null||v===undefined?'':typeof v==='boolean'?(v?1:0):String(v).replace(/[|\r\n]/g,' ');}).join('|');}
+  function submitResult(){
+    if(state.screen!=='results')return;
+    const db=labFirestore();
+    if(!db){state.submitStatus='offline';return;}
+    state.submitStatus='sending';
+    const rec=resultRecord();rec.createdAt=firebase.firestore.FieldValue.serverTimestamp();
+    db.collection(LAB.collection||'bandit_results').doc(rec.runId).set(rec)
+      .then(()=>{state.submitStatus='sent';if(state.screen==='results')render();})
+      .catch(err=>{state.submitStatus='failed';state.submitError=(err&&err.message)||'';if(state.screen==='results')render();});
+  }
+  function dashboardStatus(){
+    const s=state.submitStatus;
+    const btn='<button type="button" class="secondary-btn" data-action="copy-code">Copy result code</button>';
+    const msg=s==='sent'?'<strong>Your result was sent to the class dashboard.</strong> Run ID <code>'+state.runId+'</code>.'
+      :s==='sending'?'<strong>Sending your result to the class dashboard…</strong>'
+      :s==='failed'?'<strong>Your result could not be sent automatically.</strong> Copy your result code and send it to your instructor.'
+      :'<strong>Send your result to your instructor.</strong> Copy your result code and paste it where your instructor asked (chat, form or e-mail).';
+    return `<div class="dash-status ${s==='sent'?'':'pending'}"><span>${msg}</span>${s==='sent'||s==='sending'?'':btn}</div>`;
+  }
+  function toast(msg){toastNode.textContent=msg;toastNode.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toastNode.classList.remove('show'),3200);}
+  const brand=()=>`<a class="brand" href="#" data-action="go-home" aria-label="Innovation Lab home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span><span class="brand-name">INNOVATION LAB</span><br><span class="brand-sub">EXPLORE / IDENTIFY</span></span></a>`;
+  const header=()=>`<header>${brand()}<div class="header-right"><span class="header-kicker">INTERACTIVE INNOVATION SIMULATION</span>${state.classroom?'':'<button type="button" class="ghost-btn" data-action="teacher">Instructor setup</button>'}</div></header>`;
+  const footer=()=>`<footer><span>Explore / Identify · A best-arm identification experiment</span><span>Browser-only. No account, server, or student tracking.</span></footer>`;
+  function home(){
+    return `<main><section class="hero">
+      <div><div class="eyebrow">An innovation decision experiment</div><h1>Explore.<br>Learn.<br><em>Identify.</em></h1>
+        <p class="lede">Five competing technologies. You begin with one observed outcome for each. Then use ${state.trials} tests to identify the technology with the highest expected payoff.</p>
+        <div class="mini-stats"><span class="pill"><strong>5</strong> starting observations</span><span class="pill"><strong>${state.trials}</strong> decisions</span><span class="pill"><span class="signal"></span> One best technology</span></div>
+      </div>
+      <div class="hero-visual" aria-hidden="true"><div class="visual-head"><span>STRATEGY EXPERIMENT / 02</span><span>BEST-ARM SEARCH</span></div>
+        <div class="visual-title">Which technology is <br>truly the best?</div>
+        <div class="visual-grid">${ARMS.map((a,i)=>`<div class="visual-arm"><div class="visual-letter" style="color:${['#7fbee7','#c6b3e7','#80d2b2','#f4bb7c','#f2a7a7'][i]}">${a}</div><div class="visual-question">μ = ?</div></div>`).join('')}</div>
+        <div class="visual-footer"><span>Observe outcomes. Build evidence.</span><strong>Make one final call.</strong></div>
+      </div></section>
+      <section class="card setup"><div class="section-head"><div><div class="eyebrow">Your mission</div><h2>Find the best technology.</h2><div class="subtle">You start with one observed outcome for each technology. Each test you run returns one more outcome. Outcomes vary from test to test, so a single result does not reveal a technology's expected payoff. At the end, recommend <strong>one</strong> technology.</div></div></div>
+        <div class="setup-bottom"><div><label class="input-label" for="student-name">YOUR NAME OR NICKNAME (OPTIONAL)</label><input id="student-name" class="name-input" maxlength="48" autocomplete="off" placeholder="e.g., Team 3" value="${esc(state.name)}"></div><button type="button" class="primary-btn" data-action="start">Start ${state.trials} tests <span aria-hidden="true">&rarr;</span></button></div>
+        ${state.classroom?'<p class="tiny" style="margin:13px 0 0">Your outcomes are specific to your own run, so no two students see the same numbers. The number of tests is set by your instructor.</p>':'<p class="tiny" style="margin:13px 0 0">For instructors: change the number of trials, the session key and the randomization scope in Instructor setup.</p>'}
+      </section><section class="step-row">
+        <div class="step"><span class="step-num">01</span><div><strong>Start with evidence</strong><span>Look at one observed outcome for each technology.</span></div></div>
+        <div class="step"><span class="step-num">02</span><div><strong>Test</strong><span>Spend ${state.trials} tests on apparent leaders or alternatives.</span></div></div>
+        <div class="step"><span class="step-num">03</span><div><strong>Identify</strong><span>Use all evidence to recommend the technology with the highest expected payoff.</span></div></div>
+      </section></main>`;
+  }
+  function initialEvidence(){
+    return `<section class="initial-evidence" aria-label="Starting observations"><div class="initial-head"><strong>Starting observations</strong><span>One observed outcome per technology · These do not use your test budget</span></div><div class="initial-grid">${ARMS.map(a=>`<div class="initial-item"><span>TECH ${a}</span><strong>${signed(initialReward(a))}</strong></div>`).join('')}</div></section>`;
+  }
+  function armCard(a,feedback){
+    const x=aggregate(state.actions,a);const chosen=feedback&&feedback.arm===a;const canPlay=state.phase==='playing';const pending=canPlay&&state.pendingArm===a;
+    const latestLabel=x.paid===0?'starting observation':'your test '+x.paid+(chosen?' · just now':'');
+    return `<article class="arm-card arm-${a} ${chosen?'chosen':''} ${canPlay?'can-play':''} ${pending?'pending':''}">
+      <div class="arm-top"><span class="arm-letter">${a}</span><span class="arm-count">${x.n} ${x.n===1?'sample':'samples'}</span></div>
+      <div><div class="arm-title">Technology ${a}</div><div class="arm-sub">Running average (all ${x.n} ${x.n===1?'observation':'observations'})</div></div>
+      <div><div class="arm-observed">${meanFmt(x.avg)}<small>pts</small></div><div class="arm-bar"><div style="width:${x.avg===null?0:100*Math.max(0,Math.min(1,x.avg/140))}%"></div></div></div>
+      <div class="arm-latest"><span>Latest payoff<br><em>${latestLabel}</em></span><strong>${signed(x.last)}</strong></div>
+      ${pending?`<div class="arm-confirm"><button type="button" class="arm-btn" data-action="confirm-invest" data-arm="${a}">Confirm: test ${a} →</button><button type="button" class="arm-cancel" data-action="cancel-invest" aria-label="Cancel selection">Cancel</button></div>`
+      :`<button type="button" class="arm-btn" data-action="invest" data-arm="${a}" ${canPlay?'':'disabled'}>${chosen?'Selected this trial':canPlay?(state.pendingArm?'Switch to '+a:'Select '+a+' →'):'Continue below'}</button>`}</article>`;
+  }
+  function feedbackPanel(last){
+    const isLast=state.actions.length===state.trials;
+    return `<section class="feedback ${last.reward<0?'fail':''}" role="status" aria-live="polite"><div>
+      <div class="feedback-eyebrow">TEST ${last.round} · TECHNOLOGY ${last.arm}</div><h2>Observed payoff: ${signed(last.reward)} points</h2></div>
+      <button type="button" class="primary-btn" data-action="next">${isLast?'Choose the best technology':'Next test'} <span aria-hidden="true">&rarr;</span></button></section>`;
+  }
+  function game(){
+    const done=state.actions.length;const last=state.phase==='feedback'?state.actions[done-1]:null;
+    const r=last?done:done+1;
+    return `<main><div class="game-intro"><div><div class="eyebrow">Test ${r} of ${state.trials}</div><h1>${last?'One more piece of evidence.':'Which technology will you test?'}</h1>
+      <div class="subtle">Every running average includes the starting observation plus your tests.</div></div><div class="status-badges"><span class="small-badge">One best technology</span><span class="small-badge">Run ${state.runId}</span></div></div>
+      <section class="card game-scorebar"><div><div class="small-label">Tests remaining</div><div class="number-big">${state.trials-done}<span style="font-size:11px;color:#93a09b;margin-left:4px">left</span></div></div>
+        <div class="progress-col"><div class="progress-between"><span>TEST BUDGET</span><span>${done} / ${state.trials} used</span></div><div class="progress-track" role="progressbar" aria-label="Trials completed" aria-valuenow="${done}" aria-valuemin="0" aria-valuemax="${state.trials}"><div class="progress-fill" style="width:${100*done/state.trials}%"></div></div><div class="progress-between"><span>Start</span><span>Final recommendation</span></div></div>
+        <div><div class="small-label">Options retested</div><div class="number-big">${coverage()}<span style="font-size:15px;color:#8c9b99"> / 5</span></div></div>
+      </section>
+      ${initialEvidence()}
+      <div class="evidence-head"><h2>Choose one technology to test</h2>${state.phase==='playing'&&state.pendingArm?`<span class="evidence-note pending-note">Technology ${state.pendingArm} selected. Confirm on its card to run the test, or pick another.</span>`:'<span class="evidence-note">Select a card, then confirm.</span>'}</div>
+      <div class="arms-grid">${ARMS.map(a=>armCard(a,last)).join('')}</div>${last?feedbackPanel(last):''}
+      <section class="card evidence-block"><div class="section-row"><div><h3>Your evidence so far</h3><span class="subtle">Each average includes the starting observation and any tests you have run.</span></div><span class="small-badge">Starting observation + your tests</span></div>
+        <div class="evidence-matrix">${ARMS.map(a=>{const x=aggregate(state.actions,a);return `<div class="matrix-cell"><label>TECHNOLOGY ${a}</label><strong>${x.n} ${x.n===1?'observation':'observations'}</strong><span>Mean: ${meanFmt(x.avg)} · added tests: ${x.paid}</span></div>`}).join('')}</div>
+      </section></main>`;
+  }
+  function finalScreen(){
+    return `<main><div class="final-banner"><div class="eyebrow">Experiments complete · Final decision</div><h1>Which technology is <em style="font-style:normal;color:var(--teal)">truly best?</em></h1>
+      <p class="lede" style="max-width:780px">Your ${state.trials} tests are finished. Select the technology you believe has the <strong>highest expected payoff</strong>.</p></div>
+      <section class="card panel"><div class="section-row"><div><h2>Your evidence</h2><div class="subtle">Each average includes the starting observation and your tests.</div></div><span class="small-badge">No further tests</span></div>
+        <div class="evidence-matrix">${ARMS.map(a=>{const x=aggregate(state.actions,a);return `<div class="matrix-cell"><label>TECHNOLOGY ${a}</label><strong>${x.avg===null?'No estimate':meanFmt(x.avg)+' pts'}</strong><span>${x.n} ${x.n===1?'observation':'observations'}</span></div>`}).join('')}</div>
+      </section><div class="evidence-head" style="margin-top:29px"><h2>Make your recommendation</h2><span class="evidence-note">One answer. No changes after submission.</span></div>
+      <div class="final-choice-grid">${ARMS.map(a=>{const x=aggregate(state.actions,a);return `<button type="button" class="final-choice ${state.selectedGuess===a?'selected':''}" data-action="choose-final" data-arm="${a}" aria-pressed="${state.selectedGuess===a}"><span class="letter">${a}${state.selectedGuess===a?' ✓':''}</span><span class="summary">Observed average<br><strong>${meanFmt(x.avg)}</strong> · ${x.n} observations</span></button>`}).join('')}</div>
+      <div class="final-actions"><button type="button" class="primary-btn" data-action="submit-final" ${state.selectedGuess?'':'disabled'}>Submit recommendation <span aria-hidden="true">&rarr;</span></button><span class="subtle">${state.selectedGuess?'Your current choice: Technology '+state.selectedGuess:'Select a technology to enable submission.'}</span></div>
+          </main>`;
+  }
+  function table(){
+    const winner=trueBest();
+    return `<table class="prob-table"><thead><tr><th>Technology</th><th>True mean</th><th>Free first draw</th><th>Final sample mean</th><th>Paid tests</th></tr></thead><tbody>
+      ${ARMS.map(a=>{const x=aggregate(state.actions,a);return `<tr><td><strong>${a}</strong> ${a===winner?'★ Best':''}${a===state.finalGuess?' · Your pick':''}</td><td class="${a===winner?'winner':''}">${state.means[a].toFixed(1)}</td><td>${signed(x.initial)}</td><td>${meanFmt(x.avg)}</td><td>${x.paid}</td></tr>`}).join('')}</tbody></table>`;
+  }
+    function comparison(){
+    const scale=Math.max(95,...ARMS.map(a=>Math.max(state.means[a],aggregate(state.actions,a).avg||0)));
+    return `<div class="comparison">${ARMS.map(a=>{const x=aggregate(state.actions,a);return `<div class="comparison-line"><span class="comparison-letter">${a}</span>
+      <div class="comparison-bars"><div class="comparison-track"><div style="width:${100*state.means[a]/scale}%"></div></div><div class="comparison-track empirical"><div style="width:${x.avg===null?0:100*Math.max(0,x.avg)/scale}%"></div></div></div>
+      <span class="comparison-values">${x.n} obs.</span></div>`}).join('')}</div><div class="legend-box"><span><i class="legend-dot"></i> True mean (revealed)</span><span><i class="legend-dot empirical"></i> Observed sample mean</span></div>`;
+  }
+  function result(){
+    const winner=trueBest(),correct=winner===state.finalGuess;
+    const e=exploratoryCount(),t=tau(),wt=weightedTau(),sumWeights=weightedSum(),loss=gap(),f=softmaxFit();
+    return `<main><div class="results-hero"><div class="eyebrow">Identification experiment complete</div><h1>${correct?'You found':'Your inference'}<br><em>${correct?'the true best.':'vs. reality.'}</em></h1>
+      <p>${esc(nameLabel())}, you recommended Technology <strong>${state.finalGuess}</strong>. The technology with the highest underlying expected payoff is <strong>${winner}</strong>. Now compare what you learned, how often you explored, and the real payoff environment.</p></div>
+      ${dashboardStatus()}
+      <section class="metrics-grid">
+        <div class="card metric"><span class="small-label">Best identified?</span><strong>${correct?'YES':'NO'}</strong><span>${correct?'You selected the true highest-mean option':'Your recommendation missed the highest-mean option'}</span></div>
+        <div class="card metric"><span class="small-label">Binary exploration τb</span><strong>${tauFmt(t)}</strong><span>${e} non-greedy choices out of ${state.trials}</span></div>
+        <div class="card metric"><span class="small-label">Weighted exploration τw</span><strong>${tauFmt(wt)}</strong><span>Accounts for how far below the leader you chose</span></div>
+        <div class="card metric"><span class="small-label">Softmax temperature τ̂</span><strong>${softTauFmt(f)}</strong><span>Maximum-likelihood fit of a softmax choice rule to your ${state.trials} choices</span></div>
+        <div class="card metric"><span class="small-label">Technologies retested</span><strong>${coverage()} / 5</strong><span>Distinct technologies chosen after the free starting observations</span></div>
+        <div class="card metric"><span class="small-label">Identification loss</span><strong>${fmt(loss)}</strong><span>True mean of best − true mean of your choice</span></div>
+      </section>
+      <div class="summary-note ${correct?'':'incorrect'}" style="margin-top:17px"><strong>${correct?'Correct identification.':'The true best was Technology '+winner+'.'}</strong> Its expected payoff is ${state.means[winner]} points per trial. ${correct?'A correct answer can come from careful inference or a lucky guess. Consider whether your evidence would justify the same choice in a different experiment.':'Technology '+state.finalGuess+' has a true mean of '+state.means[state.finalGuess]+', so the expected payoff gap is '+loss+' points per future trial.'}</div>
+      <div class="results-grid">
+        <section class="card panel"><h2>How much did you explore?</h2><div class="subtle">All three measures use only the sample averages available <strong>before</strong> each decision. Five free initial observations provide a benchmark, so <strong>all ${state.trials} decisions count</strong>.</div>
+          <div class="tau-gauge"><div class="small-label">1 / Binary exploration</div><div class="formula">τb = ${e} / ${state.trials} = ${tauFmt(t)}</div><div class="tau-track"><span class="tau-marker" style="left:${Math.round(100*t)}%"></span></div><div class="tau-scale"><span>0 · Greedy</span><span>1 · All non-greedy</span></div><p class="subtle" style="margin-top:9px">All non-greedy choices receive an equal weight of 1.</p></div>
+          <div class="tau-gauge"><div class="small-label">2 / Payoff-gap-weighted exploration</div><div class="formula">τw = ${weightFmt(sumWeights)} / ${state.trials} = ${tauFmt(wt)}</div><div class="tau-track"><span class="tau-marker" style="left:${Math.round(100*wt)}%"></span></div><div class="tau-scale"><span>0 · Greedy</span><span>1 · Maximum weighted exploration</span></div><p class="subtle" style="margin-top:9px">All five technologies are observed at the outset. Each choice receives weight <strong>min(1, observed mean gap / (2γ))</strong>, where the gap is measured against the highest <em>pre-decision sample mean</em> and γ = ${sig()} is the half-width of the uniform noise, so the full-weight gap is ${EXPLORATION_GAP_SCALE_SD*sig()} points. Greedy choices receive weight 0.</p></div>
+          <div class="weight-example"><div><strong>Gap 6 → weight ${weightFmt(6/(EXPLORATION_GAP_SCALE_SD*sig()))}</strong>Only slightly below the best observed mean</div><div><strong>Gap ${EXPLORATION_GAP_SCALE_SD*sig()} → weight 1.00</strong>At least 2γ (the full noise range) below the leader</div></div>
+          <div class="tau-gauge"><div class="small-label">3 / Softmax temperature estimate (maximum likelihood)</div><div class="formula">P(choose i) = e<sup>m<sub>i</sub>/τ</sup> / Σ<sub>j</sub> e<sup>m<sub>j</sub>/τ</sup> &nbsp;⇒&nbsp; τ̂ = ${softTauFmt(f)}</div><div class="tau-track"><span class="tau-marker" style="left:${softTauPos(f)}%"></span></div><div class="tau-scale"><span>${TAU_GRID_MIN} · Greedy (log scale)</span><span>${TAU_GRID_MAX} · Random</span></div><p class="subtle" style="margin-top:9px">${softTauDesc(f)} m<sub>i</sub> is the pre-decision sample mean of technology i; τ is searched on a log grid from ${TAU_GRID_MIN} to ${TAU_GRID_MAX} payoff points.</p></div>
+          <div class="note-technical" style="margin-top:19px"><strong>How to interpret:</strong> τb counts the frequency of choices below the current empirical leader. τw measures how far below that leader the chosen alternative appears. Both range from 0 to 1 and include the very first student decision. τ̂ is the exploration (temperature) parameter of the softmax choice rule used in bandit models of organizational learning: it is the value of τ that makes your observed sequence of ${state.trials} choices most likely, given the sample means you saw at each step.<br><br><strong>Important:</strong> τb and τw are descriptive; τ̂ is model-based and assumes a stationary softmax rule, which real students rarely follow exactly (many explore early and exploit late). None of the three measures decision quality: repeatedly choosing an obviously weak option raises all of them without improving identification. Compare students only under the same noise setting and the same session key.</div>
+        </section>
+        <section class="card panel"><h2>The true payoff environment</h2><div class="subtle">Five distinct true means were randomly generated inside an 18-point band (best 92–100, runner-up 2–6 below, the rest within 12 points of the runner-up) and assigned to technologies before play. They never changed.</div>
+          ${table()}<div class="result-explainer"><strong>Observed payoff = true mean + uniform noise on [−γ, γ]</strong><br>γ = ${sig()} points · True means: ${ARMS.map(a=>state.means[a]).slice().sort((a,b)=>a-b).join(', ')} (value set fixed by session key; ${RANDOMIZATION[state.mode].short.toLowerCase()}) · Five free initial observations + ${state.trials} discretionary tests. Every final sample mean includes its free observation.<br>Session key: ${esc(state.seed)} · Run ID: <strong>${state.runId}</strong> (reproduces every draw of this run)</div>
+        </section>
+      </div>
+      <section class="card panel" style="margin-top:17px"><div class="section-row"><div><h2>Beliefs versus reality</h2><p class="subtle" style="margin:0">A noisy sample mean can be above or below a technology's true expected payoff.</p></div><span class="small-badge">Payoffs from ${state.trials} paid tests: ${signed(totalPayoff())} pts</span></div>${comparison()}</section>
+      <section class="card panel round-log"><div class="section-row"><div><h2>Review your ${state.trials} choices</h2><div class="subtle">Green tiles show non-greedy decisions. Every tile, including Trial 1, has an exploration weight calculated from the evidence available before that choice.</div></div><span class="small-badge">τw = ${tauFmt(wt)} · τ̂ = ${softTauFmt(f)}</span></div>
+        <div class="round-pills">${state.actions.map(r=>`<div class="round-pill ${r.exploratory===true?'explore':''}" title="Observed gap: ${weightFmt(r.observedGapBefore)} points; weight: ${weightFmt(r.explorationWeight)}"><div class="round-no">T${r.round}</div><div class="round-arm">${r.arm}</div><div class="round-payoff">${signed(r.reward)}</div><div class="label-tau">${r.exploratory?'EXPLORE':'EXPLOIT'}</div><div class="round-weight">w: ${weightFmt(r.explorationWeight)}</div></div>`).join('')}</div>
+      </section>
+      <div class="results-actions"><button type="button" class="primary-btn" data-action="replay">Play again <span aria-hidden="true">&rarr;</span></button><button type="button" class="secondary-btn" data-action="csv">Download decisions (CSV)</button><button type="button" class="secondary-btn" data-action="copy-results">Copy result summary</button>${state.classroom?'':'<button type="button" class="secondary-btn" data-action="new-draw">New randomized environment</button>'}</div>
+      <div style="margin-top:30px"><div class="eyebrow">Debrief questions</div><div class="questions"><div class="question"><b>01 / EVIDENCE</b>Was your highest observed sample mean attached to the true best technology?</div><div class="question"><b>02 / STRATEGY</b>Does a large τw indicate insightful exploration, or merely repeated tests of poor-performing options?</div><div class="question"><b>03 / OBJECTIVE</b>What would change if the task were to maximize total payoffs instead of identify the best technology?</div></div></div>
+    </main>`;
+  }
+  function classLink(trials=state.draftTrials,key=state.draftSeed,mode=state.draftMode){
+    if(window.location.protocol==='file:')return '';
+    const url=new URL(window.location.href);url.search='';url.hash='';url.searchParams.set('rounds',String(trials));url.searchParams.set('seed',key.trim()||state.seed);url.searchParams.set('mode',mode);url.searchParams.set('class','1');return url.href;
+  }
+  function instructorDialog(){
+    const key=state.draftSeed.trim()||state.seed;
+    const link=classLink(state.draftTrials,key,state.draftMode);
+    const means=makeMeans(key,key);
+    const sortedVals=Object.values(means).slice().sort((a,b)=>b-a);
+    return `<div class="overlay" id="modalBackdrop"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="teacher-title">
+      <div class="modal-top"><div><div class="eyebrow">Instructor tools</div><h2 id="teacher-title">Configure your class game</h2></div><button type="button" class="close-btn" aria-label="Close" data-action="close-teacher">&times;</button></div>
+      <p class="subtle">The session key fixes the hidden <strong>set</strong> of five true means, so everyone in the class faces the same difficulty. Every student run then draws its own five free starting observations and its own payoff noise, so no two students (and no two replays) see the same numbers. Each results page and CSV carries a <strong>Run ID</strong> that reproduces that student's draws exactly.</p><p class="tiny" style="margin:9px 0 0"><strong>Difficulty:</strong> Five distinct hidden means are drawn for each session. The highest mean is between 92 and 100 (not always 100), the runner-up is 2–6 points below it, and the three weaker means lie within 12 points below the runner-up, so all five sit inside an 18-point band (never below 74). Means are then assigned to A–E. Individual observed payoffs can fall well outside that band because of noise. <strong>Starting trap:</strong> the five free starting observations are conditioned so that the true best technology never shows the highest starting value, so every student begins with a tempting wrong leader. Do not tell students this rule, or they will simply avoid the initial leader.</p><div class="divider"></div>
+      <div class="teacher-third teacher-two">
+        <div class="teacher-field"><label for="teacher-trials">TRIAL BUDGET</label><select id="teacher-trials">${ROUNDS.map(n=>`<option value="${n}" ${state.draftTrials===n?'selected':''}>${n} trials</option>`).join('')}</select></div>
+        <div class="teacher-field"><label for="teacher-seed">SESSION KEY</label><input id="teacher-seed" class="text-input" maxlength="80" spellcheck="false" value="${esc(state.draftSeed)}"></div>
+      </div>
+      <div class="teacher-field teacher-wide"><label for="teacher-mode">RANDOMIZATION</label><select id="teacher-mode">${Object.entries(RANDOMIZATION).map(([v,x])=>`<option value="${v}" ${state.draftMode===v?'selected':''}>${x.label}</option>`).join('')}</select><p class="tiny" style="margin:8px 0 0">${state.draftMode==='shared'?'Same five means on the same letters for the whole class. Students can compare notes on letters, so the answer key below applies to everyone.':'Each run also shuffles which letter carries which mean, so a neighbor\'s "C is best" is useless. Noise is always independent per run.'}</p></div>
+      <div class="divider"></div><div class="small-label" style="margin-bottom:9px">Student class link</div>
+      <div class="link-box" id="link-preview">${esc(link||'Host index.html online to generate a shareable student link.')}</div>
+      <div class="results-actions" style="margin-top:14px"><button type="button" class="primary-btn" data-action="apply-teacher">Apply settings</button><button type="button" class="secondary-btn" data-action="copy-link" ${link?'':'disabled'}>Copy student link</button></div>
+      <p class="tiny">A class link hides the instructor setup and locks experiment settings in the interface. This is not secure exam proctoring: students can inspect a static page's code. <strong>Class dashboard:</strong> open <strong>dashboard.html</strong> (next to this file) to collect results and plot identification success against τ. With Firebase settings in config.js every finished game arrives live; without them, students press <em>Copy result code</em> on their results page and you paste the codes into the dashboard.</p>
+      <div class="divider"></div><div class="section-row"><div><h3 style="font-size:16px;margin:0">Hidden answer key</h3><div class="subtle">${state.draftMode==='shared'?'The value set and its letter assignment are fixed by the session key.':'The value set is fixed by the session key; letters are shuffled per run (see each student\'s CSV).'}</div></div><button type="button" class="secondary-btn" data-action="reveal-key">${state.teacherReveal?'Hide answer key':'Reveal answer key'}</button></div>
+      <div id="answer-key">${state.teacherReveal?(state.draftMode==='shared'?`<table class="teacher-truth"><thead><tr><th>Technology</th><th>True mean</th></tr></thead><tbody>${ARMS.map(a=>`<tr><td>${a} ${a===trueBest(means)?'★ Best':''}</td><td>${means[a]}</td></tr>`).join('')}</tbody></table>`:`<table class="teacher-truth"><thead><tr><th>Rank</th><th>True mean</th><th>Technology</th></tr></thead><tbody>${sortedVals.map((v,i)=>`<tr><td>${i+1}${i===0?' ★ Best':''}</td><td>${v}</td><td>varies by run</td></tr>`).join('')}</tbody></table>`):'<p class="tiny" style="margin-top:11px">Keep this hidden when projecting your screen to students.</p>'}</div>
+      <div class="note" style="margin-top:17px"><strong>Recommended teaching setup:</strong> 20 trials, which takes about four minutes and leaves time for a second run on a fresh draw; choose 30 or 40 for a longer session. Payoff noise is fixed: uniform on ±${sig()} points. With 20 trials, simulated softmax agents identify the best technology 47% of the time when greedy and 72% at the best τ (30 trials: 48% and 80%); at ±24 noise both figures fall to 31% and 47% and luck swamps strategy, which is why wider noise was removed. After the game, compare identification accuracy against binary τb, payoff-gap-weighted τw and the softmax estimate τ̂. A higher exploration score is not automatically better.</div>
+    </section></div>`;
+  }
+  function render(top=false){
+    const body=state.screen==='home'?home():state.screen==='game'?game():state.screen==='final'?finalScreen():result();
+    app.innerHTML=`<div class="shell">${header()}${body}${footer()}</div>${state.teacherOpen?instructorDialog():''}`;
+    if(top)window.scrollTo({top:0,behavior:'instant'});
+  }
+  function invest(a){
+    if(state.screen!=='game'||state.phase!=='playing'||!ARMS.includes(a)||state.actions.length>=state.trials)return;
+    state.pendingArm=null;
+    const previous=state.actions;
+    const x=aggregate(previous,a);
+    const meansBefore=Object.fromEntries(ARMS.map(b=>[b,aggregate(previous,b).avg]));
+    const knownBest=Math.max(...Object.values(meansBefore));
+    const observedGapBefore=Math.max(0,knownBest-x.avg);
+    const exploratory=observedGapBefore>1e-9;
+    const explorationWeight=Math.min(1,observedGapBefore/(EXPLORATION_GAP_SCALE_SD*sig()));
+    const round=previous.length+1;
+    const payoff=reward(a,x.n+1); // One free observation per arm always precedes paid pulls.
+    state.actions.push({round,arm:a,reward:payoff,pullIndex:x.n+1,estimatedBefore:x.avg,benchmarkBefore:knownBest,meansBefore,observedGapBefore,exploratory,explorationWeight,runningTotal:totalPayoff()+payoff});
+    state.phase='feedback';render();document.querySelector('.feedback')?.scrollIntoView({behavior:'smooth',block:'nearest'});
+  }
+  function start(){state.runId=newRunId();state.screen='game';state.phase='playing';state.actions=[];state.pendingArm=null;state.selectedGuess=null;state.finalGuess=null;state.means=currentMeans();render(true);}
+  function next(){if(state.screen!=='game'||state.phase!=='feedback')return;if(state.actions.length>=state.trials){state.screen='final';render(true);return;}state.phase='playing';render();document.querySelector('.arms-grid')?.scrollIntoView({behavior:'instant',block:'start'});}
+  function replay(newDraw=false){if(newDraw){state.seed='LAB-'+Math.random().toString(36).slice(2,10).toUpperCase();}state.attempt+=1;state.submitStatus='idle';state.submitError='';start();}
+  function applyTeacher(){
+    const key=state.draftSeed.trim();if(!key){toast('Enter a session key');return;}
+    if(state.actions.length>0&&state.screen!=='home'&&!window.confirm('Changing settings will reset your current experiment. Continue?'))return;
+    state.trials=state.draftTrials;state.seed=key;state.mode=state.draftMode;state.runId=newRunId();state.means=currentMeans();state.screen='home';state.phase='playing';state.actions=[];state.selectedGuess=null;state.finalGuess=null;state.teacherOpen=false;state.teacherReveal=false;render(true);toast('Class settings applied');
+  }
+  async function copyText(text){
+    try{if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(text);toast('Copied to clipboard');return;}
+      const el=document.createElement('textarea');el.value=text;el.style.cssText='position:fixed;left:-10000px';el.setAttribute('readonly','');document.body.appendChild(el);el.select();const ok=document.execCommand('copy');el.remove();toast(ok?'Copied to clipboard':'Copy failed. Please copy manually.');
+    }catch(err){toast('Clipboard unavailable in this browser');}
+  }
+  function safeCell(v){
+    let s=String(v??'');if(/^[\s]*[=+@\-]/.test(s)&&typeof v==='string')s="'"+s;return '"'+s.replace(/"/g,'""')+'"';
+  }
+  function downloadCsv(){
+    if(state.screen!=='results')return;
+    const f=softmaxFit();
+    const header=['record_type','student','session_key','run_id','randomization_mode','noise_gamma','trial_budget','trial','technology','observation_number_for_option','observed_payoff','observed_mean_before','best_observed_mean_before','observed_means_before_all','observed_gap_before','exploratory_choice','exploration_weight','running_paid_payoff','final_recommendation','true_best','correct_identification','tau_exploration_index','tau_weighted_exploration_index','softmax_tau_mle','softmax_tau_ci_low','softmax_tau_ci_high','softmax_pseudo_r2','softmax_log_likelihood','identification_loss','technology_true_mean'];
+    const meta=[state.finalGuess,trueBest(),state.finalGuess===trueBest()?1:0,tauFmt(tau()),tauFmt(weightedTau()),f?f.tau.toFixed(4):'',f?f.ciLow.toFixed(4):'',f?f.ciHigh.toFixed(4):'',f?f.pseudoR2.toFixed(4):'',f?Number(f.ll.toFixed(4)):'',gap()];
+    const base=[nameLabel(),state.seed,state.runId,state.mode,sig(),state.trials];
+    const initialRows=ARMS.map(a=>['initial',...base,0,a,1,initialReward(a),'','','','','','','',...meta,state.means[a]]);
+    const choiceRows=state.actions.map(r=>['choice',...base,r.round,r.arm,r.pullIndex,r.reward,r.estimatedBefore,r.benchmarkBefore,ARMS.map(b=>b+'='+r.meansBefore[b].toFixed(3)).join(';'),r.observedGapBefore,r.exploratory?1:0,r.explorationWeight.toFixed(6),r.runningTotal,...meta,state.means[r.arm]]);
+    const rows=[header,...initialRows,...choiceRows];
+    const csv='\ufeff'+rows.map(row=>row.map(safeCell).join(',')).join('\r\n');
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+    a.href=url;a.download=`innovation_identification_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),3000);toast('Decision log downloaded');
+  }
+    function copySummary(){
+    const starting=ARMS.map(a=>`${a}: ${signed(initialReward(a))}`).join(' · ');
+    const counts=ARMS.map(a=>`${a}: ${aggregate(state.actions,a).paid} added tests, ${aggregate(state.actions,a).n} total observations, sample mean ${meanFmt(aggregate(state.actions,a).avg)}`).join('\n');
+    const f=softmaxFit();
+    return copyText(`Innovation Strategy Lab · Best-arm identification\nStudent: ${nameLabel()}\nSession: ${state.seed}\nRun ID: ${state.runId} (${RANDOMIZATION[state.mode].short})\nNoise: uniform ±${sig()}\nFree initial observations (independent per run): ${starting}\nDiscretionary trials: ${state.trials}\nFinal recommendation: ${state.finalGuess}\nTrue best: ${trueBest()}\nCorrect identification: ${state.finalGuess===trueBest()?'YES':'NO'}\nBinary exploration tau: ${tauFmt(tau())}\nWeighted exploration tau_w: ${tauFmt(weightedTau())} (sum weights ${weightFmt(weightedSum())})\nSoftmax temperature tau_hat (MLE): ${softTauFmt(f)}${softTauCi(f)?' (95% interval '+softTauCi(f)+')':''}\nNon-greedy choices: ${exploratoryCount()}/${state.trials}\nOptions retested: ${coverage()}/5\nIdentification loss: ${gap()}\nCumulative paid-trial realized payoff: ${totalPayoff()}\n${counts}\nSequence: ${state.actions.map(r=>r.arm).join(' ')}`);
+  }
+    document.addEventListener('input',e=>{
+    if(e.target.id==='student-name')state.name=e.target.value;
+    if(e.target.id==='teacher-seed'){
+      state.draftSeed=e.target.value;state.teacherReveal=false;
+      const preview=document.getElementById('link-preview');if(preview)preview.textContent=classLink(state.draftTrials,e.target.value,state.draftMode)||'Host index.html online to generate a shareable student link.';
+      const ans=document.getElementById('answer-key');if(ans)ans.innerHTML='<p class="tiny" style="margin-top:11px">Answer key hidden. Reveal it again to see the updated assignment.</p>';
+      const btn=document.querySelector('[data-action="reveal-key"]');if(btn)btn.textContent='Reveal answer key';
+    }
+  });
+  document.addEventListener('change',e=>{
+    if(e.target.id==='teacher-trials'){state.draftTrials=getTrials(e.target.value);state.teacherReveal=false;render();}
+    if(e.target.id==='teacher-mode'){state.draftMode=getMode(e.target.value);state.teacherReveal=false;render();}
+  });
+  document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if(state.teacherOpen){state.teacherOpen=false;render();}else if(state.pendingArm){state.pendingArm=null;render();}});
+  document.addEventListener('click',e=>{
+    if(e.target.id==='modalBackdrop'){state.teacherOpen=false;state.teacherReveal=false;render();return;}
+    const el=e.target.closest('[data-action]');if(!el)return;
+    const action=el.dataset.action;
+    if(action==='go-home'){e.preventDefault();if(state.screen==='home')return;if(state.actions.length&&!window.confirm('Leave this experiment? Current progress will be lost.'))return;state.screen='home';state.actions=[];state.pendingArm=null;state.phase='playing';state.finalGuess=null;render(true);}
+    else if(action==='teacher'){state.draftTrials=state.trials;state.draftSeed=state.seed;state.draftMode=state.mode;state.teacherReveal=false;state.teacherOpen=true;render();}
+    else if(action==='close-teacher'){state.teacherOpen=false;state.teacherReveal=false;render();}
+    else if(action==='start')start();
+    else if(action==='invest'){if(state.screen==='game'&&state.phase==='playing'&&ARMS.includes(el.dataset.arm)){state.pendingArm=el.dataset.arm;render();}}
+    else if(action==='confirm-invest'){if(state.pendingArm===el.dataset.arm)invest(el.dataset.arm);}
+    else if(action==='cancel-invest'){state.pendingArm=null;render();}
+    else if(action==='next')next();
+    else if(action==='choose-final'&&state.screen==='final'){state.selectedGuess=el.dataset.arm;render();}
+    else if(action==='submit-final'&&state.screen==='final'&&state.selectedGuess){state.finalGuess=state.selectedGuess;state.screen='results';state.submitStatus='idle';state.submitError='';submitResult();render(true);}
+    else if(action==='replay')replay();
+    else if(action==='new-draw'&&!state.classroom)replay(true);
+    else if(action==='csv')downloadCsv();
+    else if(action==='copy-results')copySummary();
+    else if(action==='copy-code')copyText(resultCode());
+    else if(action==='apply-teacher')applyTeacher();
+    else if(action==='reveal-key'){state.teacherReveal=!state.teacherReveal;render();}
+    else if(action==='copy-link'){const link=classLink();if(link)copyText(link);else toast('Host the page online to obtain a student link');}
+  });
+  render();
+})();
+
+</script>
+</body>
+</html>

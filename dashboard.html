@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Class dashboard | Explore / Identify</title>
+<style>
+  :root{--ink:#14252b;--muted:#64747a;--line:#dce5e3;--paper:#f5f7f6;--white:#fff;--teal:#167c73;--teal-soft:#e5f4f0;--navy:#152b31;--blue:#496db4;--coral:#d9583b;--coral-soft:#fbe9e4;--amber:#b7791f}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--paper);color:var(--ink);font-family:"Segoe UI","Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",Roboto,sans-serif;font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  button{font:inherit;cursor:pointer}button:disabled{cursor:not-allowed;opacity:.5}
+  h1,h2,h3{margin:0;letter-spacing:-.01em}
+  [hidden]{display:none!important}
+  :focus-visible{outline:3px solid rgba(22,124,115,.35);outline-offset:1px}
+  .top{display:flex;align-items:center;gap:10px 18px;flex-wrap:wrap;padding:12px 22px;background:var(--white);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+  .brand{display:flex;flex-direction:column;margin-right:auto}
+  .brand h1{font-size:19px;font-weight:800}
+  .brand .eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);font-weight:700}
+  .pill{display:inline-flex;align-items:center;gap:7px;border:1.5px solid var(--line);border-radius:999px;padding:5px 12px;font-size:13px;font-weight:600;background:var(--paper);color:var(--muted)}
+  .pill .dot{width:8px;height:8px;border-radius:50%;background:#b8c3c0}
+  .pill.live{border-color:var(--teal);color:var(--teal);background:var(--teal-soft)}.pill.live .dot{background:var(--teal);box-shadow:0 0 0 3px rgba(22,124,115,.18)}
+  .pill.warn{border-color:#e9d8b4;color:var(--amber);background:#fdf6e7}.pill.warn .dot{background:var(--amber)}
+  .btn{border:1.5px solid var(--line);background:var(--white);color:var(--ink);border-radius:11px;padding:8px 14px;font-weight:600;font-size:14px}
+  .btn:hover{border-color:#b9c7c3}
+  .btn.primary{background:var(--teal);border-color:var(--teal);color:#fff}
+  .btn.danger{color:var(--coral)}
+  .btn.small{padding:5px 10px;font-size:13px;border-radius:9px}
+  select,input[type=text],input[type=number],textarea{font:inherit;border:1.5px solid var(--line);border-radius:10px;padding:7px 10px;background:var(--white);color:var(--ink)}
+  textarea{width:100%;min-height:150px;resize:vertical;font-family:ui-monospace,Consolas,monospace;font-size:12px}
+  label.inline{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--muted);font-weight:600}
+  .wrap{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:18px;padding:18px 22px 40px;max-width:1500px;margin:0 auto}
+  @media (max-width:1100px){.wrap{grid-template-columns:1fr}}
+  .card{background:var(--white);border:1px solid var(--line);border-radius:18px;padding:18px 20px}
+  .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}
+  @media (max-width:800px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  .kpi{background:var(--white);border:1px solid var(--line);border-radius:16px;padding:14px 16px}
+  .kpi .k{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700}
+  .kpi .v{font-size:28px;font-weight:800;line-height:1.15;margin-top:4px}
+  .kpi .s{font-size:12.5px;color:var(--muted);margin-top:3px}
+  .kpi.good .v{color:var(--teal)}.kpi.bad .v{color:var(--coral)}
+  .section-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+  .section-row h2{font-size:17px;font-weight:800}
+  .subtle{font-size:13px;color:var(--muted)}
+  .controls{display:flex;gap:10px 16px;flex-wrap:wrap;align-items:center;margin:8px 0 12px}
+  .seg{display:inline-flex;border:1.5px solid var(--line);border-radius:11px;overflow:hidden}
+  .seg button{border:0;background:var(--white);padding:7px 12px;font-size:13px;font-weight:600;color:var(--muted)}
+  .seg button.on{background:var(--teal);color:#fff}
+  .chart-box{position:relative;height:380px}
+  .chart-box.short{height:230px}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-top:8px}
+  .legend i{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+  .legend i.bar{border-radius:3px;background:rgba(22,124,115,.35);border:1px solid var(--teal)}
+  .legend i.dash{width:22px;height:0;border-top:2.5px dashed var(--navy);border-radius:0;vertical-align:3px}
+  .rail .card{margin-bottom:16px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:700;cursor:pointer;user-select:none;white-space:nowrap}
+  th.sorted{color:var(--teal)}
+  td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+  tr.hl td{background:var(--teal-soft)}
+  tbody tr{cursor:pointer}tbody tr:hover td{background:#f3f7f6}
+  .seq{font-family:ui-monospace,Consolas,monospace;font-size:11.5px;letter-spacing:.06em;color:var(--muted);word-break:break-all}
+  .tag{display:inline-block;border-radius:6px;padding:1px 6px;font-size:11px;font-weight:700}
+  .tag.ok{background:var(--teal-soft);color:var(--teal)}.tag.no{background:var(--coral-soft);color:var(--coral)}
+  .x{border:0;background:transparent;color:var(--muted);font-size:14px;padding:0 4px;line-height:1}
+  .x:hover{color:var(--coral)}
+  .empty{border:2px dashed var(--line);border-radius:16px;padding:28px;text-align:center;color:var(--muted);margin-top:12px}
+  .empty strong{color:var(--ink)}
+  .stat{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line);font-size:13.5px}
+  .stat:last-child{border-bottom:0}
+  .stat b{font-variant-numeric:tabular-nums}
+  .overlay{position:fixed;inset:0;background:rgba(20,37,43,.45);display:flex;align-items:center;justify-content:center;padding:20px;z-index:20}
+  .modal{background:var(--white);border-radius:20px;padding:22px 24px;max-width:760px;width:100%;max-height:92vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+  .modal h2{font-size:18px;margin-bottom:6px}
+  .drop{border:2px dashed var(--line);border-radius:14px;padding:18px;text-align:center;color:var(--muted);font-size:13.5px;margin-top:12px;background:var(--paper)}
+  .drop.over{border-color:var(--teal);background:var(--teal-soft)}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px}
+  .mono{font-family:ui-monospace,Consolas,monospace;font-size:12px;word-break:break-all;background:var(--paper);border-radius:10px;padding:10px 12px}
+  #qr{display:flex;justify-content:center;margin:14px 0}
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--navy);color:#fff;padding:10px 16px;border-radius:12px;font-size:14px;opacity:0;transition:.25s;pointer-events:none;z-index:30}
+  .toast.show{opacity:1;transform:translateX(-50%)}
+  .foot{text-align:center;color:var(--muted);font-size:12px;padding:0 20px 30px}
+  .note{font-size:12.5px;color:var(--muted);line-height:1.55}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="eyebrow">Instructor dashboard</span><h1 id="title">Explore / Identify · Class results</h1></div>
+  <span class="pill" id="livePill"><span class="dot"></span><span id="liveText">Not connected</span></span>
+  <label class="inline">Session <select id="sessionSel"><option value="">All sessions</option></select></label>
+  <button class="btn primary" id="importBtn">Import results</button>
+  <button class="btn" id="linkBtn">Student link / QR</button>
+  <button class="btn" id="csvBtn">Download CSV</button>
+  <button class="btn danger" id="clearBtn">Clear…</button>
+</header>
+
+<div class="wrap">
+  <main>
+    <div class="kpis">
+      <div class="kpi"><div class="k">Students</div><div class="v" id="kN">0</div><div class="s" id="kNs">no results yet</div></div>
+      <div class="kpi good"><div class="k">Found the best</div><div class="v" id="kRate">–</div><div class="s" id="kRateS"></div></div>
+      <div class="kpi"><div class="k">Median τ̂ · found vs missed</div><div class="v" id="kTau">–</div><div class="s" id="kTauS"></div></div>
+      <div class="kpi"><div class="k">τ separates outcomes</div><div class="v" id="kAuc">–</div><div class="s" id="kAucS"></div></div>
+    </div>
+
+    <section class="card">
+      <div class="section-row"><div><h2>Identification success by exploration τ</h2><div class="subtle" id="rateSub">Bars: share of students in each τ bin who recommended the true best technology. Dots: individual students (top = found, bottom = missed).</div></div></div>
+      <div class="controls">
+        <div class="seg" id="measureSeg"><button data-m="hat" class="on">Softmax τ̂</button><button data-m="b">Binary τb</button><button data-m="w">Weighted τw</button></div>
+        <label class="inline">Bins <input type="number" id="binsInput" min="3" max="20" value="8" style="width:64px"></label>
+        <label class="inline"><input type="checkbox" id="simToggle" checked> Simulated softmax agents (reference)</label>
+        <label class="inline"><input type="checkbox" id="firstOnly" checked> First attempt per student only</label>
+        <label class="inline">Trials <select id="trialSel"><option value="">any</option></select></label>
+      </div>
+      <div class="chart-box"><canvas id="rateChart"></canvas></div>
+      <div class="legend"><span><i class="bar"></i>Share found (bin)</span><span><i style="background:var(--teal)"></i>Student who found the best</span><span><i style="background:var(--coral)"></i>Student who missed</span><span id="simLegend"><i class="dash"></i>Simulated softmax agent with that τ</span><span><i style="background:#fff;border:2px solid var(--muted)"></i>Hollow: τ̂ at the grid bound (pure greedy or no attraction to the leader)</span></div>
+      <div class="empty" id="emptyBox"><strong>No results yet.</strong><br>Students' games arrive here live once Firebase is configured in config.js. Otherwise click <strong>Import results</strong> and paste the result codes students copied from their results page, or drop their CSV files.</div>
+    </section>
+
+    <section class="card" style="margin-top:16px">
+      <div class="section-row"><div><h2>How many students per τ bin</h2><div class="subtle">Counts, split by outcome. Same bins as the chart above.</div></div></div>
+      <div class="chart-box short"><canvas id="countChart"></canvas></div>
+    </section>
+
+    <section class="card" style="margin-top:16px">
+      <div class="section-row"><div><h2 id="foundTitle">Students who found the best technology</h2><div class="subtle">Click a column to sort. Click a row to highlight the student in the charts.</div></div><span class="pill" id="foundPill">0</span></div>
+      <div style="overflow:auto"><table id="foundTable"></table></div>
+    </section>
+    <section class="card" style="margin-top:16px">
+      <div class="section-row"><div><h2 id="missTitle">Students who missed</h2></div><span class="pill" id="missPill">0</span></div>
+      <div style="overflow:auto"><table id="missTable"></table></div>
+    </section>
+  </main>
+
+  <aside class="rail">
+    <div class="card"><h2 style="font-size:16px;margin-bottom:8px">Summary</h2><div id="stats"></div></div>
+    <div class="card"><h2 style="font-size:16px;margin-bottom:8px">Reading the chart</h2>
+      <p class="note"><strong>τ̂</strong> is the softmax temperature fitted to each student's choices (payoff points, log scale): near 0 means always testing the current leader; large values mean choices barely depended on the sample means. <strong>τb</strong> is the share of non-greedy tests; <strong>τw</strong> weights each non-greedy test by how far below the leader it was.</p>
+      <p class="note">The dashed curve is the simulated identification rate of a softmax agent playing the same game with a fixed τ (20,000 games per point, from simulate_tau.py). Students usually beat it at the same τ̂ because they explore early and exploit late, which a fixed-τ agent cannot do.</p>
+      <p class="note">Hollow dots are students whose τ̂ sits at a grid bound: pure greedy play (left) or choices with no attraction to the leader (right). Only a bound on τ is identified for them.</p>
+    </div>
+  </aside>
+</div>
+<p class="foot" id="footer"></p>
+
+<div class="overlay" id="importModal" hidden>
+  <div class="modal">
+    <div class="section-row"><div><h2>Import results</h2><div class="subtle">Paste result codes (one per line, extra text around them is ignored) or drop files: students' decision CSVs or a CSV downloaded from this dashboard.</div></div><button class="btn small" id="importClose">Close</button></div>
+    <textarea id="codeBox" placeholder="IDLAB1|SNU-INNOVATION-2026|7K3MZ2PQ|Kim Minji|student|20|12|1|B|B|1|0.35|0.21|4.21|..."></textarea>
+    <div class="drop" id="drop">Drop CSV files here, or <label style="color:var(--teal);cursor:pointer;text-decoration:underline">choose files<input type="file" id="fileInput" multiple accept=".csv,text/csv" hidden></label></div>
+    <div class="row"><button class="btn primary" id="parseBtn">Add pasted codes</button><button class="btn" id="demoBtn" title="Synthetic students, for trying the dashboard">Load 40 demo students</button><span class="subtle" id="importMsg"></span></div>
+    <p class="note" style="margin-top:12px">Imported results are kept in this browser (localStorage) until you clear them. Duplicates (same Run ID) are ignored.</p>
+  </div>
+</div>
+
+<div class="overlay" id="linkModal" hidden>
+  <div class="modal" style="max-width:560px">
+    <div class="section-row"><div><h2>Student link</h2><div class="subtle">Students open this link; it locks the settings and hides the instructor tools.</div></div><button class="btn small" id="linkClose">Close</button></div>
+    <div class="row"><label class="inline">Session key <input type="text" id="linkSeed" value="SNU-INNOVATION-2026" maxlength="80" style="width:220px"></label>
+      <label class="inline">Trials <select id="linkTrials"><option>20</option><option>30</option><option>40</option></select></label>
+      <label class="inline">Letters <select id="linkMode"><option value="student">shuffled per student</option><option value="shared">shared</option></select></label></div>
+    <div id="qr"></div>
+    <div class="mono" id="linkText"></div>
+    <div class="row"><button class="btn primary" id="copyLink">Copy link</button><span class="subtle">If this page is opened from a local file, host the folder online (e.g. GitHub Pages) to get a shareable link.</span></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/12.3.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="config.js"></script>
+<script>
+(function(){
+  'use strict';
+  const CFG=window.LAB_CONFIG||{};
+  const $=id=>document.getElementById(id);
+  const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const TAU_MIN=0.05,TAU_MAX=500;
+  const TEAL='#167c73',CORAL='#d9583b',NAVY='#152b31',MUTED='#64747a',LINE='#dce5e3';
+  // Field order of the student's result code (must match CODE_FIELDS in index.html).
+  const CODE_FIELDS=['v','sessionKey','runId','name','mode','trials','gamma','attempt','finalPick','trueBest','correct','tauB','tauW','tauHat','tauLow','tauHigh','tauAtLow','tauAtHigh','pseudoR2','loss','nonGreedy','retested','paidPayoff','sequence','initialDraws','trueMeans'];
+  const NUM=new Set(['v','trials','gamma','attempt','tauB','tauW','tauHat','tauLow','tauHigh','pseudoR2','loss','nonGreedy','retested','paidPayoff']);
+  const BOOL=new Set(['correct','tauAtLow','tauAtHigh']);
+  // Simulated softmax agents (uniform noise ±12, starting trap, 20,000 games per point; simulate_tau.py): [tau, P(correct)].
+  const SIM={
+    20:[[0.05,0.465],[0.07,0.459],[0.099,0.463],[0.139,0.461],[0.196,0.463],[0.275,0.464],[0.387,0.479],[0.545,0.497],[0.766,0.528],[1.077,0.568],[1.515,0.609],[2.131,0.665],[2.997,0.697],[4.216,0.718],[5.93,0.712],[8.341,0.711],[11.731,0.696],[16.5,0.685],[23.208,0.671],[32.643,0.655],[45.913,0.65],[64.577,0.644],[90.83,0.639],[127.755,0.626],[179.691,0.625],[252.74,0.627],[355.485,0.624],[500,0.629]],
+    30:[[0.05,0.477],[0.07,0.478],[0.099,0.476],[0.139,0.483],[0.196,0.488],[0.275,0.498],[0.387,0.515],[0.545,0.533],[0.766,0.571],[1.077,0.619],[1.515,0.683],[2.131,0.746],[2.997,0.783],[4.216,0.8],[5.93,0.804],[8.341,0.796],[11.731,0.779],[16.5,0.775],[23.208,0.753],[32.643,0.749],[45.913,0.739],[64.577,0.734],[90.83,0.727],[127.755,0.726],[179.691,0.725],[252.74,0.726],[355.485,0.72],[500,0.722]]
+  };
+
+  // ---- State ----
+  let liveRows=[],localRows=[],db=null,pinOk=false,measure='hat',highlightId=null;
+  let sortKey={found:'tauHat',miss:'tauHat'},sortDir={found:1,miss:1};
+  try{localRows=JSON.parse(localStorage.getItem('idlab.rows.v1')||'[]');}catch(e){localRows=[];}
+  const saveLocal=()=>{try{localStorage.setItem('idlab.rows.v1',JSON.stringify(localRows));}catch(e){}};
+
+  let toastTimer=null;
+  function toast(msg){const el=$('toast');el.textContent=msg;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),2800);}
+  function askPin(){if(pinOk)return true;const v=prompt('Admin PIN (config.js → adminPin)');if(v===null)return false;if(String(v).trim()===String(CFG.adminPin??'1234')){pinOk=true;return true;}toast('Wrong PIN');return false;}
+
+  // ---- Normalisation ----
+  function normalize(o,source){
+    const r={};
+    CODE_FIELDS.forEach(k=>{
+      let v=o[k];
+      if(NUM.has(k)){v=(v===''||v===null||v===undefined)?null:Number(v);if(v!==null&&!Number.isFinite(v))v=null;}
+      else if(BOOL.has(k)){v=v===true||v===1||v==='1'||v==='true'||v==='TRUE';}
+      else v=v===null||v===undefined?'':String(v);
+      r[k]=v;
+    });
+    if(!r.runId)return null;
+    if(!r.name)r.name='Anonymous';
+    if(r.attempt===null)r.attempt=1;
+    if(r.tauHat!==null){if(r.tauHat<=TAU_MIN*1.0001)r.tauAtLow=true;if(r.tauHat>=TAU_MAX*0.9999)r.tauAtHigh=true;}
+    r.source=source;r.createdAtMs=Number(o.createdAtMs)||Date.now();
+    return r;
+  }
+  function parseCodes(text){
+    const out=[];const re=/IDLAB1\|[^\r\n]+/g;let m;
+    while((m=re.exec(text))){
+      const parts=m[0].split('|').slice(1);const o={};
+      CODE_FIELDS.forEach((k,i)=>{o[k]=parts[i]===undefined?'':parts[i].trim();});
+      const r=normalize(o,'code');if(r)out.push(r);
+    }
+    return out;
+  }
+  function parseCsv(text){ // RFC 4180-ish, returns array of arrays
+    const rows=[];let row=[],field='',q=false;text=text.replace(/^﻿/,'');
+    for(let i=0;i<text.length;i++){
+      const c=text[i];
+      if(q){if(c==='"'){if(text[i+1]==='"'){field+='"';i++;}else q=false;}else field+=c;}
+      else if(c==='"')q=true;
+      else if(c===','){row.push(field);field='';}
+      else if(c==='\n'||c==='\r'){if(c==='\r'&&text[i+1]==='\n')i++;row.push(field);rows.push(row);row=[];field='';}
+      else field+=c;
+    }
+    if(field!==''||row.length){row.push(field);rows.push(row);}
+    return rows.filter(r=>r.length>1||(r.length===1&&r[0]!==''));
+  }
+  const unq=s=>String(s??'').replace(/^'/,'');
+  function rowsFromCsv(text){
+    const t=parseCsv(text);if(t.length<2)return [];
+    const head=t[0].map(h=>h.trim());const idx=Object.fromEntries(head.map((h,i)=>[h,i]));
+    if('record_type' in idx){ // a student's decision log
+      const get=(r,k)=>unq(r[idx[k]]);
+      const choice=t.slice(1).filter(r=>get(r,'record_type')==='choice').sort((a,b)=>Number(get(a,'trial'))-Number(get(b,'trial')));
+      const initial=t.slice(1).filter(r=>get(r,'record_type')==='initial');
+      if(!choice.length)return [];
+      const f=choice[0];const arms=['A','B','C','D','E'];
+      const byArm=k=>arms.map(a=>{const row=initial.find(r=>get(r,'technology')===a);return row?get(row,k):'';}).join(';');
+      const o={v:1,sessionKey:get(f,'session_key'),runId:get(f,'run_id'),name:get(f,'student'),mode:get(f,'randomization_mode'),trials:get(f,'trial_budget'),gamma:get(f,'noise_gamma'),attempt:1,
+        finalPick:get(f,'final_recommendation'),trueBest:get(f,'true_best'),correct:get(f,'correct_identification'),tauB:get(f,'tau_exploration_index'),tauW:get(f,'tau_weighted_exploration_index'),
+        tauHat:get(f,'softmax_tau_mle'),tauLow:get(f,'softmax_tau_ci_low'),tauHigh:get(f,'softmax_tau_ci_high'),tauAtLow:false,tauAtHigh:false,pseudoR2:get(f,'softmax_pseudo_r2'),loss:get(f,'identification_loss'),
+        nonGreedy:choice.reduce((s,r)=>s+(get(r,'exploratory_choice')==='1'?1:0),0),retested:new Set(choice.map(r=>get(r,'technology'))).size,paidPayoff:get(choice[choice.length-1],'running_paid_payoff'),
+        sequence:choice.map(r=>get(r,'technology')).join(''),initialDraws:byArm('observed_payoff'),trueMeans:byArm('technology_true_mean')};
+      const r=normalize(o,'csv');return r?[r]:[];
+    }
+    if('runId' in idx){ // this dashboard's own export
+      return t.slice(1).map(r=>{const o={};head.forEach((h,i)=>{o[h]=unq(r[i]);});return normalize(o,'csv');}).filter(Boolean);
+    }
+    return [];
+  }
+  function addLocal(list){
+    const have=new Set([...liveRows,...localRows].map(r=>r.runId));let n=0;
+    list.forEach(r=>{if(!have.has(r.runId)){localRows.push(r);have.add(r.runId);n++;}});
+    saveLocal();renderAll();return n;
+  }
+
+  // ---- Data selection ----
+  function allRows(){const m=new Map();localRows.forEach(r=>m.set(r.runId,r));liveRows.forEach(r=>m.set(r.runId,r));return [...m.values()];}
+  function visibleRows(){
+    let rows=allRows();
+    const sess=$('sessionSel').value;if(sess)rows=rows.filter(r=>r.sessionKey===sess);
+    const T=$('trialSel').value;if(T)rows=rows.filter(r=>String(r.trials)===T);
+    if($('firstOnly').checked){
+      const best=new Map();
+      rows.forEach(r=>{const k=r.sessionKey+'\u0000'+r.name.trim().toLowerCase();const cur=best.get(k);if(!cur||(r.attempt||1)<(cur.attempt||1)||((r.attempt||1)===(cur.attempt||1)&&r.createdAtMs<cur.createdAtMs))best.set(k,r);});
+      rows=[...best.values()];
+    }
+    return rows;
+  }
+  const tauOf=r=>measure==='hat'?r.tauHat:measure==='b'?r.tauB:r.tauW;
+  const clampTau=t=>Math.min(TAU_MAX,Math.max(TAU_MIN,t));
+  const xOf=t=>measure==='hat'?Math.log10(clampTau(t)):Math.min(1,Math.max(0,t));
+  const fmtTau=t=>t<1?t.toFixed(2):t<10?t.toFixed(1):Math.round(t).toString();
+  const xLabel=x=>measure==='hat'?fmtTau(Math.pow(10,x)):x.toFixed(1);
+  function edges(){
+    const k=Math.max(3,Math.min(20,Number($('binsInput').value)||8));
+    const lo=measure==='hat'?Math.log10(TAU_MIN):0,hi=measure==='hat'?Math.log10(TAU_MAX):1;
+    return Array.from({length:k+1},(_,i)=>lo+(hi-lo)*i/k);
+  }
+  function binRows(rows){
+    const e=edges(),bins=e.slice(0,-1).map((lo,i)=>({lo,hi:e[i+1],mid:(lo+e[i+1])/2,n:0,ok:0,rows:[]}));
+    rows.forEach(r=>{const t=tauOf(r);if(t===null||t===undefined)return;const x=xOf(t);let i=Math.floor((x-e[0])/(e[1]-e[0]));i=Math.max(0,Math.min(bins.length-1,i));bins[i].n++;if(r.correct)bins[i].ok++;bins[i].rows.push(r);});
+    bins.forEach(b=>{b.rate=b.n?b.ok/b.n:null;});
+    return bins;
+  }
+  function hashJitter(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return ((h>>>0)%1000)/1000-0.5;}
+  function wilson(k,n){if(!n)return null;const z=1.96,p=k/n,d=1+z*z/n,c=(p+z*z/(2*n))/d,h=z*Math.sqrt(p*(1-p)/n+z*z/(4*n*n))/d;return [Math.max(0,c-h),Math.min(1,c+h)];}
+  function median(a){if(!a.length)return null;const s=a.slice().sort((x,y)=>x-y),m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2;}
+  function auc(pos,neg){if(!pos.length||!neg.length)return null;let s=0;pos.forEach(p=>neg.forEach(n=>{s+=p>n?1:p===n?0.5:0;}));return s/(pos.length*neg.length);}
+  function simFor(rows){const Ts=rows.map(r=>r.trials).filter(Boolean);if(!Ts.length)return {T:20,pts:SIM[20]};const cnt={};Ts.forEach(t=>cnt[t]=(cnt[t]||0)+1);const T=Number(Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0]);return SIM[T]?{T,pts:SIM[T]}:{T,pts:null};}
+
+  // ---- Charts ----
+  Chart.defaults.font.family=getComputedStyle(document.body).fontFamily;Chart.defaults.font.size=12.5;Chart.defaults.color=MUTED;
+  const nLabelPlugin={id:'nLabels',afterDatasetsDraw(chart){const ds=chart.data.datasets.find(d=>d._bars);if(!ds)return;const meta=chart.getDatasetMeta(chart.data.datasets.indexOf(ds));const ctx=chart.ctx;ctx.save();ctx.font='700 11px '+Chart.defaults.font.family;ctx.fillStyle=NAVY;ctx.textAlign='center';ctx.textBaseline='bottom';
+    meta.data.forEach((el,i)=>{const b=ds.data[i]._b;if(!b||!b.n)return;const y=chart.scales.y.getPixelForValue(b.rate);ctx.fillText(`${b.ok}/${b.n}`,el.x,y-4);});ctx.restore();}};
+  const rateChart=new Chart($('rateChart'),{type:'bar',data:{datasets:[]},options:{responsive:true,maintainAspectRatio:false,animation:false,interaction:{mode:'nearest',intersect:true},
+    plugins:{legend:{display:false},tooltip:{callbacks:{title:()=> '',label:c=>{const raw=c.raw||{};if(raw._b){const b=raw._b;return `τ ${xLabel(b.lo)} – ${xLabel(b.hi)}: ${b.ok} of ${b.n} found the best (${Math.round(100*b.rate)}%)`;}if(raw._r){const r=raw._r;return [`${r.name} · ${r.correct?'found the best':'missed ('+r.finalPick+' vs '+r.trueBest+')'}`,`τ̂ ${r.tauHat===null?'–':(r.tauAtLow?'< '+TAU_MIN:r.tauAtHigh?'> '+TAU_MAX:fmtTau(r.tauHat))} · τb ${r.tauB?.toFixed(2)} · τw ${r.tauW?.toFixed(2)}`,`Sequence ${r.sequence}`];}if(raw._s)return `Simulated softmax agent, τ = ${fmtTau(Math.pow(10,raw.x))}: ${Math.round(100*raw.y)}%`;return '';}}}},
+    scales:{x:{type:'linear',grid:{color:LINE},title:{display:true,text:''},ticks:{autoSkip:false,maxRotation:0}},y:{min:0,max:1.08,grid:{color:LINE},title:{display:true,text:'Share who found the best technology'},ticks:{stepSize:0.2,callback:v=>v<=1?Math.round(v*100)+'%':''}}},
+    onClick:(e,active)=>{const el=active&&active[0];if(!el)return;const raw=rateChart.data.datasets[el.datasetIndex].data[el.index];if(raw&&raw._r){highlightId=highlightId===raw._r.runId?null:raw._r.runId;renderAll();}}},plugins:[nLabelPlugin]});
+  const countChart=new Chart($('countChart'),{type:'bar',data:{datasets:[]},options:{responsive:true,maintainAspectRatio:false,animation:false,
+    plugins:{legend:{position:'top',align:'end',labels:{boxWidth:10,usePointStyle:true}},tooltip:{callbacks:{title:items=>{const b=items[0]&&items[0].raw&&items[0].raw._b;return b?`τ ${xLabel(b.lo)} – ${xLabel(b.hi)}`:'';}}}},
+    scales:{x:{type:'linear',stacked:true,grid:{color:LINE},ticks:{autoSkip:false,maxRotation:0}},y:{stacked:true,beginAtZero:true,ticks:{precision:0},grid:{color:LINE},title:{display:true,text:'Students'}}}}});
+
+  function applyXScale(chart,e){
+    const sc=chart.options.scales.x;sc.min=e[0];sc.max=e[e.length-1];
+    sc.afterBuildTicks=scale=>{scale.ticks=e.map(v=>({value:v}));};
+    sc.ticks.callback=v=>xLabel(v);
+    sc.title.text=measure==='hat'?'Softmax temperature τ̂ (payoff points, log scale) → more exploration':measure==='b'?'Binary exploration τb (share of non-greedy tests)':'Weighted exploration τw';
+  }
+  function renderCharts(rows){
+    const bins=binRows(rows),e=edges();
+    const used=rows.filter(r=>tauOf(r)!==null);
+    const pointStyle=r=>(measure==='hat'&&(r.tauAtLow||r.tauAtHigh))?'hollow':'solid';
+    const mk=(list,correct)=>({type:'scatter',label:correct?'Found':'Missed',order:1,data:list.map(r=>({x:xOf(tauOf(r))+hashJitter(r.runId)*(e[1]-e[0])*0.5,y:correct?1-0.025-Math.abs(hashJitter(r.runId+'y'))*0.06:0.025+Math.abs(hashJitter(r.runId+'y'))*0.06,_r:r})),
+      pointRadius:c=>{const r=c.raw&&c.raw._r;return r&&r.runId===highlightId?9:5.5;},pointHoverRadius:8,
+      pointBackgroundColor:c=>{const r=c.raw&&c.raw._r;if(!r)return correct?TEAL:CORAL;return pointStyle(r)==='hollow'?'#fff':(correct?TEAL:CORAL);},
+      pointBorderColor:c=>{const r=c.raw&&c.raw._r;return r&&r.runId===highlightId?NAVY:(correct?TEAL:CORAL);},pointBorderWidth:c=>{const r=c.raw&&c.raw._r;return r&&r.runId===highlightId?3:2;}});
+    const ds=[
+      {type:'bar',label:'Share found',order:3,_bars:true,data:bins.map(b=>({x:b.mid,y:b.n?b.rate:null,_b:b})),backgroundColor:'rgba(22,124,115,0.22)',borderColor:TEAL,borderWidth:1.5,borderRadius:5,barPercentage:0.92,categoryPercentage:1},
+      mk(used.filter(r=>!r.correct),false),mk(used.filter(r=>r.correct),true)
+    ];
+    const sim=simFor(rows);
+    const showSim=$('simToggle').checked&&measure==='hat'&&sim.pts;
+    $('simLegend').hidden=!showSim;
+    if(showSim)ds.push({type:'line',label:`Simulated softmax agent, T = ${sim.T}`,order:2,data:sim.pts.map(([t,p])=>({x:Math.log10(t),y:p,_s:true})),borderColor:NAVY,borderDash:[6,4],borderWidth:2,pointRadius:0,pointHitRadius:6,tension:0.3,fill:false});
+    applyXScale(rateChart,e);rateChart.data.datasets=ds;rateChart.update('none');
+
+    applyXScale(countChart,e);
+    countChart.data.datasets=[
+      {label:'Found the best',data:bins.map(b=>({x:b.mid,y:b.ok,_b:b})),backgroundColor:TEAL,borderRadius:3,barPercentage:0.92,categoryPercentage:1},
+      {label:'Missed',data:bins.map(b=>({x:b.mid,y:b.n-b.ok,_b:b})),backgroundColor:'rgba(217,88,59,0.75)',borderRadius:3,barPercentage:0.92,categoryPercentage:1}
+    ];
+    countChart.update('none');
+    $('simLegend').textContent='';$('simLegend').innerHTML=`<i class="dash"></i>Simulated softmax agent with that τ (T = ${sim.T}${sim.pts?'':', no curve available'})`;
+  }
+
+  // ---- KPIs and rail ----
+  const pct=x=>x===null?'–':Math.round(100*x)+'%';
+  function renderStats(rows){
+    const n=rows.length,ok=rows.filter(r=>r.correct),miss=rows.filter(r=>!r.correct);
+    const all=allRows().length;
+    $('kN').textContent=n;$('kNs').textContent=n?`${all} result${all===1?'':'s'} collected${all!==n?`, ${n} shown`:''}`:'no results yet';
+    const ci=wilson(ok.length,n);
+    $('kRate').textContent=n?pct(ok.length/n):'–';$('kRateS').textContent=n?`${ok.length} of ${n}${ci?` · 95% CI ${pct(ci[0])}–${pct(ci[1])}`:''}`:'';
+    const th=r=>r.tauHat,mo=median(ok.map(th).filter(v=>v!==null)),mm=median(miss.map(th).filter(v=>v!==null));
+    $('kTau').textContent=n?`${mo===null?'–':fmtTau(mo)} · ${mm===null?'–':fmtTau(mm)}`:'–';$('kTauS').textContent=n?'softmax τ̂ in payoff points':'';
+    const a=auc(ok.map(r=>tauOf(r)).filter(v=>v!==null),miss.map(r=>tauOf(r)).filter(v=>v!==null));
+    $('kAuc').textContent=a===null?'–':pct(a);$('kAucS').textContent=a===null?'needs both outcomes':'chance that a random finder has higher τ than a random misser (50% = unrelated)';
+    const sim=simFor(rows);const simGreedy=sim.pts?sim.pts[0][1]:null,simBest=sim.pts?Math.max(...sim.pts.map(p=>p[1])):null,simRand=sim.pts?sim.pts[sim.pts.length-1][1]:null;
+    const greedy=rows.filter(r=>r.tauB===0).length;
+    const el=$('stats');
+    const line=(k,v)=>`<div class="stat"><span>${k}</span><b>${v}</b></div>`;
+    el.innerHTML=n?
+      line('Students shown',n)+line('Found the best',`${ok.length} (${pct(ok.length/n)})`)+line('Pure greedy (τb = 0)',`${greedy} (${pct(greedy/n)})`)+line('Median non-greedy tests',`${median(rows.map(r=>r.nonGreedy).filter(v=>v!==null))??'–'} of ${sim.T}`)+line('Median technologies retested',`${median(rows.map(r=>r.retested).filter(v=>v!==null))??'–'} / 5`)+line('Median τb · τw',`${median(rows.map(r=>r.tauB))?.toFixed(2)} · ${median(rows.map(r=>r.tauW))?.toFixed(2)}`)+line('Mean identification loss',`${(rows.reduce((s,r)=>s+(r.loss||0),0)/n).toFixed(1)} pts`)
+      +(sim.pts?`<div class="note" style="margin-top:10px"><strong>Simulated benchmarks (T = ${sim.T}):</strong> greedy agent ${pct(simGreedy)} · best fixed-τ agent ${pct(simBest)} · random choice ${pct(simRand)}.</div>`:'')
+      :'<p class="note">Import results or connect Firebase to see class statistics.</p>';
+  }
+
+  // ---- Tables ----
+  const COLS=[
+    {k:'name',h:'Student',f:r=>esc(r.name)},
+    {k:'tauHat',h:'τ̂',num:true,f:r=>r.tauHat===null?'–':r.tauAtLow?'&lt; '+TAU_MIN:r.tauAtHigh?'&gt; '+TAU_MAX:fmtTau(r.tauHat)},
+    {k:'tauB',h:'τb',num:true,f:r=>r.tauB?.toFixed(2)},
+    {k:'tauW',h:'τw',num:true,f:r=>r.tauW?.toFixed(2)},
+    {k:'nonGreedy',h:'Non-greedy',num:true,f:r=>`${r.nonGreedy??'–'}/${r.trials??'–'}`},
+    {k:'finalPick',h:'Pick · best',f:r=>`${esc(r.finalPick)} · ${esc(r.trueBest)}`},
+    {k:'loss',h:'Loss',num:true,f:r=>r.loss===null?'–':r.loss},
+    {k:'sequence',h:'Sequence',f:r=>`<span class="seq">${esc(r.sequence)}</span>`},
+    {k:'sessionKey',h:'Session',f:r=>`<span class="subtle">${esc(r.sessionKey)}${r.attempt>1?' · try '+r.attempt:''}</span>`}
+  ];
+  function renderTable(id,which,rows){
+    const key=sortKey[which],dir=sortDir[which];
+    const sorted=rows.slice().sort((a,b)=>{let x=a[key],y=b[key];if(x===null||x===undefined)return 1;if(y===null||y===undefined)return -1;if(typeof x==='string')return dir*x.localeCompare(y);return dir*(x-y);});
+    const t=$(id);
+    if(!rows.length){t.innerHTML='<tbody><tr><td class="subtle" style="border:0">None yet.</td></tr></tbody>';return;}
+    t.innerHTML=`<thead><tr>${COLS.map(c=>`<th data-k="${c.k}" class="${c.k===key?'sorted':''}">${c.h}${c.k===key?(dir>0?' ▲':' ▼'):''}</th>`).join('')}<th></th></tr></thead><tbody>${sorted.map(r=>`<tr data-id="${esc(r.runId)}" class="${r.runId===highlightId?'hl':''}">${COLS.map(c=>`<td class="${c.num?'num':''}">${c.f(r)}</td>`).join('')}<td><button class="x" data-del="${esc(r.runId)}" title="Remove this result">×</button></td></tr>`).join('')}</tbody>`;
+    t.querySelectorAll('th[data-k]').forEach(th=>th.addEventListener('click',()=>{const k=th.dataset.k;if(sortKey[which]===k)sortDir[which]*=-1;else{sortKey[which]=k;sortDir[which]=1;}renderAll();}));
+    t.querySelectorAll('tbody tr').forEach(tr=>tr.addEventListener('click',e=>{if(e.target.closest('[data-del]'))return;highlightId=highlightId===tr.dataset.id?null:tr.dataset.id;renderAll();}));
+    t.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>removeRow(b.dataset.del)));
+  }
+  function removeRow(id){
+    const live=liveRows.find(r=>r.runId===id);
+    if(live){if(!db)return;if(!confirm(`Delete ${live.name}'s result from the database?`))return;if(!askPin())return;db.collection(CFG.collection||'bandit_results').doc(id).delete().then(()=>toast('Deleted')).catch(err=>toast('Error: '+err.message));return;}
+    const i=localRows.findIndex(r=>r.runId===id);if(i<0)return;if(!confirm(`Remove ${localRows[i].name}'s imported result?`))return;localRows.splice(i,1);saveLocal();renderAll();
+  }
+
+  // ---- Selectors ----
+  function refreshSelectors(){
+    const rows=allRows();
+    const sess=$('sessionSel'),cur=sess.value;const keys=[...new Set(rows.map(r=>r.sessionKey))].sort();
+    sess.innerHTML='<option value="">All sessions</option>'+keys.map(k=>`<option value="${esc(k)}">${esc(k)} (${rows.filter(r=>r.sessionKey===k).length})</option>`).join('');
+    if(keys.includes(cur))sess.value=cur;
+    const ts=$('trialSel'),curT=ts.value;const Ts=[...new Set(rows.map(r=>r.trials).filter(Boolean))].sort((a,b)=>a-b);
+    ts.innerHTML='<option value="">any</option>'+Ts.map(t=>`<option value="${t}">${t}</option>`).join('');if(Ts.map(String).includes(curT))ts.value=curT;
+  }
+  function renderAll(){
+    refreshSelectors();
+    const rows=visibleRows();
+    $('emptyBox').hidden=rows.length>0;
+    renderCharts(rows);renderStats(rows);
+    const ok=rows.filter(r=>r.correct),miss=rows.filter(r=>!r.correct);
+    $('foundPill').textContent=ok.length;$('missPill').textContent=miss.length;
+    renderTable('foundTable','found',ok);renderTable('missTable','miss',miss);
+  }
+
+  // ---- CSV export ----
+  const csvEsc=v=>{let s=String(v??'');if(/^[=+@\-]/.test(s)&&!/^-?\d/.test(s))s="'"+s;return /[",\n\r]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;};
+  function exportCsv(){
+    const rows=visibleRows();if(!rows.length){toast('Nothing to export');return;}
+    const head=[...CODE_FIELDS,'source','createdAt'];
+    const body=rows.map(r=>head.map(k=>k==='createdAt'?new Date(r.createdAtMs).toISOString():BOOL.has(k)?(r[k]?1:0):r[k]).map(csvEsc).join(','));
+    const blob=new Blob(['﻿'+[head.join(','),...body].join('\r\n')],{type:'text/csv;charset=utf-8'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`explore_identify_class_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  }
+
+  // ---- Demo data (synthetic; for trying the dashboard) ----
+  function loadDemo(){
+    const names=['Kim Minji','Lee Junho','Park Seoyeon','Choi Hyunwoo','Jung Yuna','Kang Dohyun','Yoon Jiwoo','Lim Taeyang','Han Soyeon','Shin Woojin','Oh Hana','Seo Jihoon','Kwon Nayeon','Hwang Minseok','Ahn Sumin','Song Jaewon','Bae Eunji','Cho Sungmin','Moon Chaewon','Jang Hyeri'];
+    const out=[];const arms='ABCDE';
+    for(let i=0;i<40;i++){
+      const u=Math.random();const tauHat=u<0.18?TAU_MIN:Math.exp(Math.log(0.3)+Math.random()*(Math.log(60)-Math.log(0.3)));
+      const atLow=tauHat<=TAU_MIN;const x=Math.log10(tauHat);
+      // success probability: a bit above the simulated curve (humans explore early, exploit late)
+      const pts=SIM[20];let p=pts[0][1];for(let j=1;j<pts.length;j++){if(Math.log10(pts[j][0])>=x){const a=pts[j-1],b=pts[j];const w=(x-Math.log10(a[0]))/(Math.log10(b[0])-Math.log10(a[0]));p=a[1]+(b[1]-a[1])*w;break;}p=pts[j][1];}
+      p=Math.min(0.95,p+0.08);const correct=Math.random()<p;
+      const nonGreedy=atLow?0:Math.max(1,Math.min(20,Math.round(2+Math.log(tauHat/0.3+1)*4+(Math.random()-0.5)*4)));
+      const tauB=nonGreedy/20,tauW=tauB*(0.35+Math.random()*0.5);
+      const best=arms[Math.floor(Math.random()*5)];let pick=best;if(!correct){do pick=arms[Math.floor(Math.random()*5)];while(pick===best);}
+      let seq='';for(let t=0;t<20;t++)seq+=Math.random()<tauB?arms[Math.floor(Math.random()*5)]:(correct?best:pick);
+      out.push(normalize({v:1,sessionKey:'DEMO-CLASS',runId:'DEMO'+String(i).padStart(2,'0')+Math.random().toString(36).slice(2,6).toUpperCase(),name:names[i%names.length]+(i>=names.length?' 2':''),mode:'student',trials:20,gamma:12,attempt:1,finalPick:pick,trueBest:best,correct,
+        tauB:+tauB.toFixed(4),tauW:+tauW.toFixed(4),tauHat:+tauHat.toFixed(4),tauLow:+(tauHat/2).toFixed(4),tauHigh:+(tauHat*2.5).toFixed(4),tauAtLow:atLow,tauAtHigh:false,pseudoR2:+(0.1+Math.random()*0.5).toFixed(4),loss:correct?0:2+Math.floor(Math.random()*8),nonGreedy,retested:Math.min(5,1+Math.round(nonGreedy/3)),paidPayoff:1750+Math.floor(Math.random()*150),sequence:seq,initialDraws:'',trueMeans:''},'demo'));
+    }
+    const n=addLocal(out.filter(Boolean));$('importMsg').textContent=`${n} synthetic students added (session DEMO-CLASS). Remove them with Clear… before class.`;
+  }
+
+  // ---- Student link ----
+  const baseUrl=()=>location.protocol==='file:'?'':location.origin+location.pathname.replace(/dashboard\.html$/i,'')+'index.html';
+  function studentLink(){const b=baseUrl();if(!b)return '';const u=new URL(b);u.searchParams.set('seed',$('linkSeed').value.trim()||'SNU-INNOVATION-2026');u.searchParams.set('rounds',$('linkTrials').value);u.searchParams.set('mode',$('linkMode').value);u.searchParams.set('class','1');return u.href;}
+  function renderLink(){const url=studentLink();$('linkText').textContent=url||'Open this dashboard from a web server (not a local file) to generate a shareable link. Students can still open index.html directly.';const q=$('qr');q.innerHTML='';if(url&&typeof QRCode!=='undefined')new QRCode(q,{text:url,width:220,height:220,correctLevel:QRCode.CorrectLevel.M});$('copyLink').disabled=!url;}
+
+  // ---- Wire up ----
+  $('measureSeg').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{measure=b.dataset.m;$('measureSeg').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));renderAll();}));
+  ['binsInput','simToggle','firstOnly','trialSel','sessionSel'].forEach(id=>$(id).addEventListener('change',renderAll));
+  $('importBtn').addEventListener('click',()=>{$('importModal').hidden=false;$('importMsg').textContent='';$('codeBox').focus();});
+  $('importClose').addEventListener('click',()=>{$('importModal').hidden=true;});
+  $('parseBtn').addEventListener('click',()=>{const list=parseCodes($('codeBox').value);const n=addLocal(list);$('importMsg').textContent=list.length?`${n} added${n<list.length?`, ${list.length-n} duplicate${list.length-n===1?'':'s'} skipped`:''}.`:'No result codes found. Codes start with IDLAB1|';if(n)$('codeBox').value='';});
+  $('demoBtn').addEventListener('click',loadDemo);
+  function handleFiles(files){
+    const list=[...files];if(!list.length)return;let added=0,done=0,found=0;
+    list.forEach(f=>{const rd=new FileReader();rd.onload=()=>{const rows=rowsFromCsv(String(rd.result||''));found+=rows.length;added+=addLocal(rows);if(++done===list.length)$('importMsg').textContent=`${list.length} file${list.length===1?'':'s'} read · ${found} result${found===1?'':'s'} found · ${added} added.`;};rd.readAsText(f);});
+  }
+  $('fileInput').addEventListener('change',e=>handleFiles(e.target.files));
+  const drop=$('drop');['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over');}));
+  ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over');}));
+  drop.addEventListener('drop',e=>handleFiles(e.dataTransfer.files));
+  document.addEventListener('paste',e=>{if($('importModal').hidden)return;if(e.target===$('codeBox'))return;const t=e.clipboardData.getData('text');if(/IDLAB1\|/.test(t)){const n=addLocal(parseCodes(t));$('importMsg').textContent=`${n} added from clipboard.`;}});
+  $('csvBtn').addEventListener('click',exportCsv);
+  $('clearBtn').addEventListener('click',()=>{
+    const rows=visibleRows();if(!rows.length){toast('Nothing to clear');return;}
+    const sess=$('sessionSel').value;const scope=sess?`session ${sess}`:'all sessions';
+    const liveN=rows.filter(r=>liveRows.some(l=>l.runId===r.runId)).length,localN=rows.length-liveN;
+    if(!confirm(`Remove ${rows.length} result${rows.length===1?'':'s'} (${scope})?${liveN?` ${liveN} will be deleted from the database.`:''}${localN?` ${localN} imported result${localN===1?'':'s'} will be removed from this browser.`:''}`))return;
+    if(liveN&&!askPin())return;
+    const ids=new Set(rows.map(r=>r.runId));
+    localRows=localRows.filter(r=>!ids.has(r.runId));saveLocal();
+    if(liveN&&db){const b=db.batch();rows.filter(r=>liveRows.some(l=>l.runId===r.runId)).forEach(r=>b.delete(db.collection(CFG.collection||'bandit_results').doc(r.runId)));b.commit().then(()=>toast('Deleted from database')).catch(err=>toast('Error: '+err.message));}
+    renderAll();
+  });
+  $('linkBtn').addEventListener('click',()=>{const s=$('sessionSel').value;if(s)$('linkSeed').value=s;$('linkModal').hidden=false;renderLink();});
+  $('linkClose').addEventListener('click',()=>{$('linkModal').hidden=true;});
+  ['linkSeed','linkTrials','linkMode'].forEach(id=>$(id).addEventListener('input',renderLink));
+  $('copyLink').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(studentLink());toast('Link copied');}catch(e){toast('Copy failed; select the text manually');}});
+  document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.hidden=true;}));
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.overlay').forEach(o=>o.hidden=true);});
+
+  // ---- Boot ----
+  if(CFG.title)$('title').textContent=CFG.title+' · Class results';
+  $('footer').textContent=(CFG.footer||'')+(CFG.footer?' · ':'')+'Results stay in this browser unless Firebase is configured (config.js).';
+  renderAll();
+  const ready=typeof firebase!=='undefined'&&CFG.firebaseConfig&&!/PASTE/.test(CFG.firebaseConfig.apiKey||'');
+  if(!ready){$('livePill').className='pill warn';$('liveText').textContent='Manual mode: paste result codes';}
+  else{
+    try{
+      if(!firebase.apps.length)firebase.initializeApp(CFG.firebaseConfig);db=firebase.firestore();
+      $('liveText').textContent='Connecting…';
+      db.collection(CFG.collection||'bandit_results').onSnapshot(snap=>{
+        liveRows=snap.docs.map(d=>{const x=d.data()||{};const ts=x.createdAt&&typeof x.createdAt.toMillis==='function'?x.createdAt.toMillis():Date.now();return normalize({...x,createdAtMs:ts},'live');}).filter(Boolean);
+        $('livePill').className='pill live';$('liveText').textContent=`Live · ${liveRows.length} result${liveRows.length===1?'':'s'}`;renderAll();
+      },err=>{$('livePill').className='pill warn';$('liveText').textContent='Database error: '+err.message;});
+    }catch(err){$('livePill').className='pill warn';$('liveText').textContent='Firebase failed to start';}
+  }
+})();
+</script>
+</body>
+</html>

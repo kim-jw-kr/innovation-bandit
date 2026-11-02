@@ -1,0 +1,63 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- Bean counting (Week 2) — unchanged, so the bean-counting pages keep working on the same project ----
+    match /settings/{doc} {
+      allow read: if true;
+      allow write: if true;
+    }
+    match /sessions/{id} {
+      allow read: if true;
+      allow write: if true;
+    }
+    match /predictions/{id} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasOnly(['sessionId', 'name', 'group', 'round', 'value', 'createdAt'])
+        && request.resource.data.sessionId is string
+        && request.resource.data.sessionId.size() > 0
+        && request.resource.data.sessionId.size() <= 60
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 40
+        && request.resource.data.group is string
+        && request.resource.data.group.size() > 0
+        && request.resource.data.group.size() <= 20
+        && request.resource.data.round is number
+        && request.resource.data.round >= 1
+        && request.resource.data.round <= 50
+        && request.resource.data.value is number
+        && request.resource.data.value >= 0
+        && request.resource.data.value <= 1000000000
+        && request.resource.data.createdAt == request.time;
+      allow update: if false;
+      allow delete: if true;
+    }
+
+    // ---- Explore / Identify (Week 9) ----
+    // One document per finished game, written by the student's page when the final recommendation is submitted.
+    // Document id = Run ID, so a game can be recorded only once. Anyone can read (the dashboard is a static page);
+    // nobody can edit; deletes are allowed so the instructor's dashboard can remove mistakes and clear a class.
+    match /bandit_results/{runId} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasAll(['v', 'sessionKey', 'runId', 'name', 'trials', 'finalPick', 'trueBest', 'correct', 'tauB', 'tauW', 'sequence', 'createdAt'])
+        && request.resource.data.runId == runId
+        && request.resource.data.sessionKey is string
+        && request.resource.data.sessionKey.size() > 0
+        && request.resource.data.sessionKey.size() <= 80
+        && request.resource.data.name is string
+        && request.resource.data.name.size() <= 40
+        && request.resource.data.sequence is string
+        && request.resource.data.sequence.size() <= 60
+        && request.resource.data.trials is number
+        && request.resource.data.trials >= 1
+        && request.resource.data.trials <= 100
+        && request.resource.data.correct is bool
+        && request.resource.data.tauB is number
+        && request.resource.data.tauW is number
+        && request.resource.data.createdAt == request.time;
+      allow update: if false;
+      allow delete: if true;
+    }
+  }
+}
