@@ -141,20 +141,19 @@
     </section>
 
     <section class="card" style="margin-top:16px">
-      <div class="section-row"><div><h2>Identification success by exploration τ</h2><div class="subtle" id="rateSub">Bars: share of students in each τ bin who recommended the true best technology. Dots: individual students (top = found, bottom = missed).</div></div></div>
+      <div class="section-row"><div><h2>Students who found the best technology, by exploration τ</h2><div class="subtle" id="rateSub">Bars: number of students in each τ bin who recommended the true best technology. Each dot is one of those students, placed at their own τ.</div></div></div>
       <div class="controls">
         <div class="seg" id="measureSeg"><button data-m="hat" class="on">Softmax τ̂</button><button data-m="b">Binary τb</button><button data-m="w">Weighted τw</button></div>
         <label class="inline">Bins <input type="number" id="binsInput" min="3" max="20" value="8" style="width:64px"></label>
-        <label class="inline"><input type="checkbox" id="simToggle" checked> Simulated softmax agents (reference)</label>
         <label class="inline"><input type="checkbox" id="firstOnly" checked> First attempt per student and round</label>
       </div>
       <div class="chart-box"><canvas id="rateChart"></canvas></div>
-      <div class="legend"><span><i class="bar"></i>Share found (bin)</span><span><i style="background:var(--teal)"></i>Student who found the best</span><span><i style="background:var(--coral)"></i>Student who missed</span><span id="simLegend"><i class="dash"></i>Simulated softmax agent with that τ</span><span><i style="background:#fff;border:2px solid var(--muted)"></i>Hollow: τ̂ at the grid bound (pure greedy or no attraction to the leader)</span></div>
+      <div class="legend"><span><i class="bar"></i>Students who found the best (per bin)</span><span><i style="background:var(--teal)"></i>One student who found the best</span><span><i style="background:#fff;border:2px solid var(--teal)"></i>Hollow: τ̂ at the grid bound (pure greedy on the left, no attraction to the leader on the right)</span></div>
       <div class="empty" id="emptyBox"><strong>No results yet.</strong><br>Students' games arrive here live once a round is open. Without Firebase, click <strong>Import results</strong> and paste the result codes students copied from their results page, or drop their CSV files.</div>
     </section>
 
     <section class="card" style="margin-top:16px">
-      <div class="section-row"><div><h2>How many students per τ bin</h2><div class="subtle">Counts, split by outcome. Same bins as the chart above.</div></div></div>
+      <div class="section-row"><div><h2>All students per τ bin</h2><div class="subtle">Found the best versus missed, same bins as the chart above.</div></div></div>
       <div class="chart-box short"><canvas id="countChart"></canvas></div>
     </section>
 
@@ -172,7 +171,7 @@
     <div class="card"><h2 style="font-size:16px;margin-bottom:8px">Summary</h2><div id="stats"></div></div>
     <div class="card"><h2 style="font-size:16px;margin-bottom:8px">Reading the chart</h2>
       <p class="note"><strong>τ̂</strong> is the softmax temperature fitted to each student's choices (payoff points, log scale): near 0 means always testing the current leader; large values mean choices barely depended on the sample means. <strong>τb</strong> is the share of non-greedy tests; <strong>τw</strong> weights each non-greedy test by how far below the leader it was.</p>
-      <p class="note">The dashed curve is the identification rate of a softmax agent with a fixed τ, simulated in this page on the same game (same hidden-mean rule, starting trap, noise ±γ and test budget as the round being viewed; 1,500 games per point). Students often beat it at the same τ̂ because they explore early and exploit late, which a fixed-τ agent cannot do.</p>
+      <p class="note">The simulated benchmarks in the summary come from softmax agents with a fixed τ playing the same game in this page (same hidden-mean rule, starting trap, noise ±γ and test budget as the round in view; 1,500 games per point). Students often beat them at the same τ̂ because they explore early and exploit late, which a fixed-τ agent cannot do.</p>
       <p class="note">Hollow dots are students whose τ̂ sits at a grid bound: pure greedy play (left) or choices with no attraction to the leader (right). Only a bound on τ is identified for them.</p>
     </div>
   </aside>
@@ -380,10 +379,10 @@
   // ---- Charts ----
   Chart.defaults.font.family=getComputedStyle(document.body).fontFamily;Chart.defaults.font.size=12.5;Chart.defaults.color=MUTED;
   const nLabelPlugin={id:'nLabels',afterDatasetsDraw(chart){const ds=chart.data.datasets.find(d=>d._bars);if(!ds)return;const meta=chart.getDatasetMeta(chart.data.datasets.indexOf(ds));const ctx=chart.ctx;ctx.save();ctx.font='700 11px '+Chart.defaults.font.family;ctx.fillStyle=NAVY;ctx.textAlign='center';ctx.textBaseline='bottom';
-    meta.data.forEach((el,i)=>{const b=ds.data[i]._b;if(!b||!b.n)return;const y=chart.scales.y.getPixelForValue(b.rate);ctx.fillText(`${b.ok}/${b.n}`,el.x,y-4);});ctx.restore();}};
+    meta.data.forEach((el,i)=>{const b=ds.data[i]._b;if(!b||!b.n)return;const y=chart.scales.y.getPixelForValue(b.ok);ctx.fillText(`${b.ok} of ${b.n}`,el.x,y-4);});ctx.restore();}};
   const rateChart=new Chart($('rateChart'),{type:'bar',data:{datasets:[]},options:{responsive:true,maintainAspectRatio:false,animation:false,interaction:{mode:'nearest',intersect:true},
-    plugins:{legend:{display:false},tooltip:{callbacks:{title:()=> '',label:c=>{const raw=c.raw||{};if(raw._b){const b=raw._b;return `τ ${xLabel(b.lo)} – ${xLabel(b.hi)}: ${b.ok} of ${b.n} found the best (${Math.round(100*b.rate)}%)`;}if(raw._r){const r=raw._r;return [`${r.name}${r.round?' · round '+r.round:''} · ${r.correct?'found the best':'missed ('+r.finalPick+' vs '+r.trueBest+')'}`,`τ̂ ${r.tauHat===null?'–':(r.tauAtLow?'< '+TAU_MIN:r.tauAtHigh?'> '+TAU_MAX:fmtTau(r.tauHat))} · τb ${r.tauB?.toFixed(2)} · τw ${r.tauW?.toFixed(2)} · ±γ ${fmtG(r.gamma)}`,`Sequence ${r.sequence}`];}if(raw._s)return `Simulated softmax agent, τ = ${fmtTau(Math.pow(10,raw.x))}: ${Math.round(100*raw.y)}%`;return '';}}}},
-    scales:{x:{type:'linear',grid:{color:LINE},title:{display:true,text:''},ticks:{autoSkip:false,maxRotation:0}},y:{min:-0.04,max:1.08,grid:{color:LINE},title:{display:true,text:'Share who found the best technology'},ticks:{stepSize:0.2,callback:v=>v>=0&&v<=1?Math.round(v*100)+'%':''}}},
+    plugins:{legend:{display:false},tooltip:{callbacks:{title:()=> '',label:c=>{const raw=c.raw||{};if(raw._b){const b=raw._b;return `τ ${xLabel(b.lo)} – ${xLabel(b.hi)}: ${b.ok} of ${b.n} student${b.n===1?'':'s'} found the best`;}if(raw._r){const r=raw._r;return [`${r.name}${r.round?' · round '+r.round:''} · ${r.correct?'found the best':'missed ('+r.finalPick+' vs '+r.trueBest+')'}`,`τ̂ ${r.tauHat===null?'–':(r.tauAtLow?'< '+TAU_MIN:r.tauAtHigh?'> '+TAU_MAX:fmtTau(r.tauHat))} · τb ${r.tauB?.toFixed(2)} · τw ${r.tauW?.toFixed(2)} · ±γ ${fmtG(r.gamma)}`,`Sequence ${r.sequence}`];}return '';}}}},
+    scales:{x:{type:'linear',grid:{color:LINE},title:{display:true,text:''},ticks:{autoSkip:false,maxRotation:0}},y:{min:0,beginAtZero:true,grid:{color:LINE},title:{display:true,text:'Students who found the best technology'},ticks:{precision:0,stepSize:1}}},
     onClick:(e,active)=>{const el=active&&active[0];if(!el)return;const raw=rateChart.data.datasets[el.datasetIndex].data[el.index];if(raw&&raw._r){highlightId=highlightId===raw._r.runId?null:raw._r.runId;renderAll();}}},plugins:[nLabelPlugin]});
   const countChart=new Chart($('countChart'),{type:'bar',data:{datasets:[]},options:{responsive:true,maintainAspectRatio:false,animation:false,
     plugins:{legend:{position:'top',align:'end',labels:{boxWidth:10,usePointStyle:true}},tooltip:{callbacks:{title:items=>{const b=items[0]&&items[0].raw&&items[0].raw._b;return b?`τ ${xLabel(b.lo)} – ${xLabel(b.hi)}`:'';}}}},
@@ -397,22 +396,21 @@
   }
   function renderCharts(rows){
     const bins=binRows(rows),e=edges();
-    const used=rows.filter(r=>tauOf(r)!==null);
     const hollow=r=>measure==='hat'&&(r.tauAtLow||r.tauAtHigh);
-    const mk=(list,correct)=>({type:'scatter',label:correct?'Found':'Missed',order:1,data:list.map(r=>({x:xOf(tauOf(r))+hashJitter(r.runId)*(e[1]-e[0])*0.5,y:correct?1:0,_r:r})),
-      pointRadius:c=>{const r=c.raw&&c.raw._r;return r&&r.runId===highlightId?9:5.5;},pointHoverRadius:8,
-      pointBackgroundColor:c=>{const r=c.raw&&c.raw._r;if(!r)return correct?TEAL:CORAL;return hollow(r)?'#fff':(correct?TEAL:CORAL);},
-      pointBorderColor:c=>{const r=c.raw&&c.raw._r;return r&&r.runId===highlightId?NAVY:(correct?TEAL:CORAL);},pointBorderWidth:c=>{const r=c.raw&&c.raw._r;return r&&r.runId===highlightId?3:2;}});
+    // One dot per student who found the best, stacked inside its bin from the bottom (a dot plot over the count bars).
+    const dots=[];
+    bins.forEach(b=>{const finders=b.rows.filter(r=>r.correct).sort((p,q)=>tauOf(p)-tauOf(q));finders.forEach((r,i)=>dots.push({x:xOf(tauOf(r)),y:i+0.5,_r:r}));});
     const ds=[
-      {type:'bar',label:'Share found',order:3,_bars:true,data:bins.map(b=>({x:b.mid,y:b.n?b.rate:null,_b:b})),backgroundColor:'rgba(22,124,115,0.22)',borderColor:TEAL,borderWidth:1.5,borderRadius:5,barPercentage:0.92,categoryPercentage:1},
-      mk(used.filter(r=>!r.correct),false),mk(used.filter(r=>r.correct),true)
+      {type:'bar',label:'Found the best',order:3,_bars:true,data:bins.map(b=>({x:b.mid,y:b.ok,_b:b})),backgroundColor:'rgba(22,124,115,0.22)',borderColor:TEAL,borderWidth:1.5,borderRadius:5,barPercentage:0.92,categoryPercentage:1},
+      {type:'scatter',label:'Student who found the best',order:1,data:dots,
+        pointRadius:c=>{const r=c.raw&&c.raw._r;return r&&r.runId===highlightId?9:5.5;},pointHoverRadius:8,
+        pointBackgroundColor:c=>{const r=c.raw&&c.raw._r;return r&&hollow(r)?'#fff':TEAL;},
+        pointBorderColor:c=>{const r=c.raw&&c.raw._r;return r&&r.runId===highlightId?NAVY:TEAL;},pointBorderWidth:c=>{const r=c.raw&&c.raw._r;return r&&r.runId===highlightId?3:2;}}
     ];
     const vs=viewSetting(rows);
-    const want=$('simToggle').checked&&measure==='hat';
-    const pts=want?simFor(vs.gamma,vs.T):null;
-    $('simLegend').hidden=!want;
-    $('simLegend').innerHTML=`<i class="dash"></i>Simulated softmax agent, ±γ ${fmtG(vs.gamma)}, ${vs.T} tests${pts?'':' (computing…)'}`;
-    if(pts)ds.push({type:'line',label:'Simulated softmax agent',order:2,data:pts.map(([t,p])=>({x:Math.log10(t),y:p,_s:true})),borderColor:NAVY,borderDash:[6,4],borderWidth:2,pointRadius:0,pointHitRadius:6,tension:0.3,fill:false});
+    if(measure==='hat')simFor(vs.gamma,vs.T); // keeps the simulated benchmarks in the summary up to date
+    const top=Math.max(1,...bins.map(b=>b.ok));
+    rateChart.options.scales.y.max=top+1;rateChart.options.scales.y.ticks.stepSize=top>12?2:1;
     applyXScale(rateChart,e);rateChart.data.datasets=ds;rateChart.update('none');
 
     applyXScale(countChart,e);
@@ -472,7 +470,7 @@
       const trs=rounds.map(r=>{const i=roundInfo(r),n=i.rows.length,ok=i.rows.filter(x=>x.correct).length,ci=wilson(ok,n);const key=i.gamma!==null&&i.T?i.gamma+'|'+i.T:null;const sim=key&&simCache.has(key)?simCache.get(key):null;const simBest=sim?Math.max(...sim.map(p=>p[1])):null,simGreedy=sim?sim[0][1]:null;
         return `<tr><td><strong>${r===0?'No round':'Round '+r}</strong></td><td class="num">${i.gamma===null?'–':'±'+fmtG(i.gamma)}</td><td class="num">${i.T??'–'}</td><td class="num">${n}</td><td class="num">${n?`<strong>${pct(ok/n)}</strong> <span class="subtle">(${ok}/${n}${ci?', '+pct(ci[0])+'–'+pct(ci[1]):''})</span>`:'–'}</td><td class="num">${n?fmtTauOrDash(median(i.rows.map(x=>x.tauHat).filter(v=>v!==null))):'–'}</td><td class="num">${n?pct(i.rows.filter(x=>x.tauB===0).length/n):'–'}</td><td class="num">${sim?`${pct(simGreedy)} / ${pct(simBest)}`:'–'}</td></tr>`;}).join('');
       $('byRoundTable').innerHTML=`<thead><tr><th>Round</th><th>Noise ±γ</th><th>Tests</th><th>Students</th><th>Found the best</th><th>Median τ̂</th><th>Pure greedy</th><th>Sim. greedy / best τ</th></tr></thead><tbody>${trs}</tbody>`;
-      rounds.forEach(r=>{const i=roundInfo(r);if(i.gamma!==null&&i.T&&$('simToggle').checked)simFor(i.gamma,i.T);});
+      rounds.forEach(r=>{const i=roundInfo(r);if(i.gamma!==null&&i.T)simFor(i.gamma,i.T);});
     }
   }
   const fmtTauOrDash=v=>v===null?'–':fmtTau(v);
@@ -602,7 +600,7 @@
 
   // ---- Wire up ----
   $('measureSeg').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{measure=b.dataset.m;$('measureSeg').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));renderAll();}));
-  ['binsInput','simToggle','firstOnly','sessionSel'].forEach(id=>$(id).addEventListener('change',renderAll));
+  ['binsInput','firstOnly','sessionSel'].forEach(id=>$(id).addEventListener('change',renderAll));
   $('ctlGammaRange').addEventListener('input',()=>{$('ctlGamma').value=$('ctlGammaRange').value;ctlDirty=true;renderControl();});
   $('ctlGamma').addEventListener('input',()=>{$('ctlGammaRange').value=clampNum($('ctlGamma').value,4,40,12);ctlDirty=true;renderControl();});
   ['ctlSeed','ctlRound','ctlTrials','ctlMode'].forEach(id=>$(id).addEventListener('input',()=>{ctlDirty=true;renderControl();}));
