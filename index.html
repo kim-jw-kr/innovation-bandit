@@ -324,23 +324,24 @@
   const LOWER_SPREAD=12; // The three weaker means lie within 12 points below the runner-up, so all five sit in an 18-point band.
   const EXPLORATION_GAP_SCALE_SD=2; // A gap of 2γ (twice the noise half-width) receives maximum weight.
   const FREE_INITIAL_SAMPLES=1; // One shared, noisy observation per technology before students choose.
-  const NOISE={low:{label:'Noise ±12',sigma:12}}; // Uniform noise on [-γ, γ] with γ = 12 (stored as `sigma`). Fixed; see README, 'Noise level'.
+  const GAMMA_DEFAULT=12, GAMMA_MIN=0, GAMMA_MAX=40; // Uniform noise on [-γ, γ]. γ is set per round by the instructor (dashboard, ?gamma=, or Instructor setup); default 12.
   // Randomization scope. The session key always fixes the SET of five true means; noise draws are always per student run.
   const RANDOMIZATION={student:{label:'Independent per student (letters shuffled per run)',short:'Letters shuffled per run'},shared:{label:'Shared class assignment (same letters for everyone)',short:'Shared letter assignment'}};
   const TAU_GRID_MIN=0.05, TAU_GRID_MAX=500, TAU_GRID_N=600; // Log-spaced grid for the softmax temperature MLE.
   const ROUNDS=[20,30,40];
   const params=new URLSearchParams(window.location.search);
-  const getNoise=()=>'low'; // Only one level exists; any ?noise= parameter is ignored.
-  const getTrials=(x)=>ROUNDS.includes(Number(x))?Number(x):20; // Default budget: 20 trials (30 and 40 remain selectable).
+  const getGamma=(x)=>{const g=Number(x);return x!==null&&x!==undefined&&x!==''&&Number.isFinite(g)&&g>=GAMMA_MIN&&g<=GAMMA_MAX?Math.round(g*10)/10:GAMMA_DEFAULT;};
+  const getRound=(x)=>{const r=Math.round(Number(x));return Number.isFinite(r)&&r>=1&&r<=99?r:0;}; // 0 = no round (a single stand-alone game).
+  const getTrials=(x)=>{const n=Math.round(Number(x));return x!==null&&x!==undefined&&x!==''&&Number.isFinite(n)&&n>=5&&n<=60?n:20;}; // Default budget: 20 tests; any 5-60 accepted.
   const getMode=(x)=>Object.hasOwn(RANDOMIZATION,x)?x:'student';
   // A fresh run ID is drawn from the browser's CSPRNG at every game start, so no two students (or replays) share noise draws.
   function newRunId(){const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let out='';if(window.crypto&&crypto.getRandomValues){const buf=new Uint32Array(8);crypto.getRandomValues(buf);for(const b of buf)out+=alphabet[b%alphabet.length];}else{for(let i=0;i<8;i++)out+=alphabet[Math.floor(Math.random()*alphabet.length)];}return out;}
   const classroom=params.get('class')==='1';
   const seed=(params.get('seed')||'SNU-INNOVATION-2026').slice(0,80);
-  const state={screen:'home',phase:'playing',name:'',classroom,noise:getNoise(),
+  const state={screen:'home',phase:'playing',name:'',classroom,gamma:getGamma(params.get('gamma')),round:getRound(params.get('round')),live:null,
     trials:getTrials(params.get('rounds')),seed,mode:getMode(params.get('mode')),runId:newRunId(),means:null,actions:[],pendingArm:null,selectedGuess:null,finalGuess:null,
     teacherOpen:false,teacherReveal:false,
-    draftTrials:getTrials(params.get('rounds')),draftSeed:seed,draftMode:getMode(params.get('mode')),priorRun:null,attempt:1,submitStatus:'idle',submitError:''};
+    draftTrials:getTrials(params.get('rounds')),draftSeed:seed,draftMode:getMode(params.get('mode')),draftGamma:getGamma(params.get('gamma')),draftRound:getRound(params.get('round')),priorRun:null,attempt:1,submitStatus:'idle',submitError:''};
   const app=document.getElementById('app'),toastNode=document.getElementById('toast');
   let toastTimer=null;
   const esc=x=>String(x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -374,13 +375,14 @@
     }
     return Object.fromEntries(ARMS.map((a,i)=>[a,values[i]]));
   }
-  const permKeyFor=(key=state.seed,mode=state.mode,runId=state.runId)=>mode==='shared'?key:key+'|run|'+runId;
-  const currentMeans=()=>makeMeans(state.seed,permKeyFor());
+  const roundSeed=(seed=state.seed,round=state.round)=>round>0?seed+'#R'+round:seed; // Each round draws a fresh set of hidden means from the same session key.
+  const permKeyFor=(key=roundSeed(),mode=state.mode,runId=state.runId)=>mode==='shared'?key:key+'|run|'+runId;
+  const currentMeans=()=>makeMeans(roundSeed(),permKeyFor());
   state.means=currentMeans();
   const trueBest=(means=state.means)=>ARMS.reduce((x,y)=>means[x]>means[y]?x:y);
-  const sig=()=>NOISE[state.noise].sigma;
+  const sig=()=>state.gamma;
   // All noise is keyed on session key + run ID: every student run (and every replay) gets its own independent draws.
-  const noiseKey=()=>state.seed+'|run|'+state.runId;
+  const noiseKey=()=>roundSeed()+'|run|'+state.runId;
   function reward(arm,pullIndex){return Math.round(state.means[arm]+sig()*noiseShock(noiseKey()+'|outcome|'+arm+'|'+pullIndex));}
   // Free starting observations are drawn per run and then CONDITIONED so that the true best technology never shows the
   // highest starting value: attempt k is accepted as soon as some other technology's free draw strictly exceeds the best
@@ -388,7 +390,7 @@
   const INITIAL_MAX_ATTEMPTS=500;
   let initialCache={key:null,draws:null};
   function initialDraws(){
-    const key=noiseKey()+'|'+state.noise+'|'+state.mode;
+    const key=noiseKey()+'|g'+state.gamma+'|'+state.mode;
     if(initialCache.key===key)return initialCache.draws;
     const best=trueBest();let draws=null;
     for(let k=0;k<INITIAL_MAX_ATTEMPTS;k++){
@@ -457,11 +459,11 @@
   let labDb=null;
   function labFirestore(){if(labDb)return labDb;if(!firebaseReady())return null;try{if(!firebase.apps.length)firebase.initializeApp(LAB.firebaseConfig);labDb=firebase.firestore();}catch(err){labDb=null;}return labDb;}
   // Field order of the result code. dashboard.html parses codes with the same list; append new fields at the end only.
-  const CODE_FIELDS=['v','sessionKey','runId','name','mode','trials','gamma','attempt','finalPick','trueBest','correct','tauB','tauW','tauHat','tauLow','tauHigh','tauAtLow','tauAtHigh','pseudoR2','loss','nonGreedy','retested','paidPayoff','sequence','initialDraws','trueMeans'];
+  const CODE_FIELDS=['v','sessionKey','runId','name','mode','trials','gamma','attempt','finalPick','trueBest','correct','tauB','tauW','tauHat','tauLow','tauHigh','tauAtLow','tauAtHigh','pseudoR2','loss','nonGreedy','retested','paidPayoff','sequence','initialDraws','trueMeans','round'];
   function resultRecord(){
     const f=softmaxFit();
     return {v:1,sessionKey:state.seed,runId:state.runId,name:nameLabel().slice(0,40),mode:state.mode,trials:state.trials,gamma:sig(),attempt:state.attempt,
-      finalPick:state.finalGuess,trueBest:trueBest(),correct:state.finalGuess===trueBest(),tauB:Number(tau().toFixed(4)),tauW:Number(weightedTau().toFixed(4)),
+      round:state.round,finalPick:state.finalGuess,trueBest:trueBest(),correct:state.finalGuess===trueBest(),tauB:Number(tau().toFixed(4)),tauW:Number(weightedTau().toFixed(4)),
       tauHat:f?Number(f.tau.toFixed(4)):null,tauLow:f?Number(f.ciLow.toFixed(4)):null,tauHigh:f?Number(f.ciHigh.toFixed(4)):null,tauAtLow:!!(f&&f.atLow),tauAtHigh:!!(f&&f.atHigh),pseudoR2:f?Number(f.pseudoR2.toFixed(4)):null,
       loss:gap(),nonGreedy:exploratoryCount(),retested:coverage(),paidPayoff:totalPayoff(),sequence:state.actions.map(r=>r.arm).join(''),
       initialDraws:ARMS.map(a=>initialReward(a)).join(';'),trueMeans:ARMS.map(a=>state.means[a]).join(';')};
@@ -477,6 +479,30 @@
       .then(()=>{state.submitStatus='sent';if(state.screen==='results')render();})
       .catch(err=>{state.submitStatus='failed';state.submitError=(err&&err.message)||'';if(state.screen==='results')render();});
   }
+  // ---- Live round control. dashboard.html writes bandit_settings/session; class links (?class=1) follow it. ----
+  const SETTINGS_DOC='bandit_settings/session';
+  function applyLive(){const l=state.live;if(!l)return;if(l.sessionKey)state.seed=String(l.sessionKey).slice(0,80);state.round=getRound(l.round);state.gamma=getGamma(l.gamma);state.trials=getTrials(l.trials);state.mode=getMode(l.mode);}
+  const startBlocked=()=>!!(state.live&&state.live.open===false);
+  function liveStatus(){
+    const l=state.live;if(!l)return '';
+    const open=l.open!==false,r=getRound(l.round)||1;
+    return `<div class="dash-status ${open?'':'pending'}" style="margin:0 0 16px"><span>${open?`<strong>Round ${r} is open.</strong> ${getTrials(l.trials)} tests. Enter your name and start when ready.`:`<strong>Round ${r} is closed.</strong> Wait for your instructor to open the next round. This page updates by itself.`}</span></div>`;
+  }
+  function replayButton(){
+    const l=state.live;
+    if(!l)return '<button type="button" class="primary-btn" data-action="replay">Play again <span aria-hidden="true">&rarr;</span></button>';
+    if(l.open===false)return '<button type="button" class="primary-btn" disabled>Waiting for the instructor to open the next round</button>';
+    const r=getRound(l.round);
+    return `<button type="button" class="primary-btn" data-action="replay">${r&&r!==state.round?'Start round '+r:'Play again'} <span aria-hidden="true">&rarr;</span></button>`;
+  }
+  function subscribeLive(){
+    if(!state.classroom)return;const db=labFirestore();if(!db)return;
+    db.doc(SETTINGS_DOC).onSnapshot(doc=>{
+      state.live=doc.exists?doc.data():null;
+      if(state.screen==='home'){applyLive();state.means=currentMeans();render();}
+      else if(state.screen==='results')render();
+    },()=>{});
+  }
   function dashboardStatus(){
     const s=state.submitStatus;
     const btn='<button type="button" class="secondary-btn" data-action="copy-code">Copy result code</button>';
@@ -488,8 +514,8 @@
   }
   function toast(msg){toastNode.textContent=msg;toastNode.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toastNode.classList.remove('show'),3200);}
   const brand=()=>`<a class="brand" href="#" data-action="go-home" aria-label="Innovation Lab home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span><span class="brand-name">INNOVATION LAB</span><br><span class="brand-sub">EXPLORE / IDENTIFY</span></span></a>`;
-  const header=()=>`<header>${brand()}<div class="header-right"><span class="header-kicker">INTERACTIVE INNOVATION SIMULATION</span>${state.classroom?'':'<button type="button" class="ghost-btn" data-action="teacher">Instructor setup</button>'}</div></header>`;
-  const footer=()=>`<footer><span>Explore / Identify · A best-arm identification experiment</span><span>Browser-only. No account, server, or student tracking.</span></footer>`;
+  const header=()=>`<header>${brand()}<div class="header-right"><span class="header-kicker">${state.round?'ROUND '+state.round+' · ':''}INTERACTIVE INNOVATION SIMULATION</span>${state.classroom?'':'<button type="button" class="ghost-btn" data-action="teacher">Instructor setup</button>'}</div></header>`;
+  const footer=()=>`<footer><span>Explore / Identify · A best-arm identification experiment</span><span>No account needed. Results go to your instructor's class dashboard.</span></footer>`;
   function home(){
     return `<main><section class="hero">
       <div><div class="eyebrow">An innovation decision experiment</div><h1>Explore.<br>Learn.<br><em>Identify.</em></h1>
@@ -502,7 +528,8 @@
         <div class="visual-footer"><span>Observe outcomes. Build evidence.</span><strong>Make one final call.</strong></div>
       </div></section>
       <section class="card setup"><div class="section-head"><div><div class="eyebrow">Your mission</div><h2>Find the best technology.</h2><div class="subtle">You start with one observed outcome for each technology. Each test you run returns one more outcome. Outcomes vary from test to test, so a single result does not reveal a technology's expected payoff. At the end, recommend <strong>one</strong> technology.</div></div></div>
-        <div class="setup-bottom"><div><label class="input-label" for="student-name">YOUR NAME OR NICKNAME (OPTIONAL)</label><input id="student-name" class="name-input" maxlength="48" autocomplete="off" placeholder="e.g., Team 3" value="${esc(state.name)}"></div><button type="button" class="primary-btn" data-action="start">Start ${state.trials} tests <span aria-hidden="true">&rarr;</span></button></div>
+        ${liveStatus()}
+        <div class="setup-bottom"><div><label class="input-label" for="student-name">YOUR NAME OR NICKNAME (OPTIONAL)</label><input id="student-name" class="name-input" maxlength="48" autocomplete="off" placeholder="e.g., Team 3" value="${esc(state.name)}"></div><button type="button" class="primary-btn" data-action="start" ${startBlocked()?'disabled':''}>Start ${state.trials} tests <span aria-hidden="true">&rarr;</span></button></div>
         ${state.classroom?'<p class="tiny" style="margin:13px 0 0">Your outcomes are specific to your own run, so no two students see the same numbers. The number of tests is set by your instructor.</p>':'<p class="tiny" style="margin:13px 0 0">For instructors: change the number of trials, the session key and the randomization scope in Instructor setup.</p>'}
       </section><section class="step-row">
         <div class="step"><span class="step-num">01</span><div><strong>Start with evidence</strong><span>Look at one observed outcome for each technology.</span></div></div>
@@ -534,7 +561,7 @@
     const done=state.actions.length;const last=state.phase==='feedback'?state.actions[done-1]:null;
     const r=last?done:done+1;
     return `<main><div class="game-intro"><div><div class="eyebrow">Test ${r} of ${state.trials}</div><h1>${last?'One more piece of evidence.':'Which technology will you test?'}</h1>
-      <div class="subtle">Every running average includes the starting observation plus your tests.</div></div><div class="status-badges"><span class="small-badge">One best technology</span><span class="small-badge">Run ${state.runId}</span></div></div>
+      <div class="subtle">Every running average includes the starting observation plus your tests.</div></div><div class="status-badges">${state.round?`<span class="small-badge">Round ${state.round}</span>`:''}<span class="small-badge">One best technology</span><span class="small-badge">Run ${state.runId}</span></div></div>
       <section class="card game-scorebar"><div><div class="small-label">Tests remaining</div><div class="number-big">${state.trials-done}<span style="font-size:11px;color:#93a09b;margin-left:4px">left</span></div></div>
         <div class="progress-col"><div class="progress-between"><span>TEST BUDGET</span><span>${done} / ${state.trials} used</span></div><div class="progress-track" role="progressbar" aria-label="Trials completed" aria-valuenow="${done}" aria-valuemin="0" aria-valuemax="${state.trials}"><div class="progress-fill" style="width:${100*done/state.trials}%"></div></div><div class="progress-between"><span>Start</span><span>Final recommendation</span></div></div>
         <div><div class="small-label">Options retested</div><div class="number-big">${coverage()}<span style="font-size:15px;color:#8c9b99"> / 5</span></div></div>
@@ -598,34 +625,36 @@
       <section class="card panel round-log"><div class="section-row"><div><h2>Review your ${state.trials} choices</h2><div class="subtle">Green tiles show non-greedy decisions. Every tile, including Trial 1, has an exploration weight calculated from the evidence available before that choice.</div></div><span class="small-badge">τw = ${tauFmt(wt)} · τ̂ = ${softTauFmt(f)}</span></div>
         <div class="round-pills">${state.actions.map(r=>`<div class="round-pill ${r.exploratory===true?'explore':''}" title="Observed gap: ${weightFmt(r.observedGapBefore)} points; weight: ${weightFmt(r.explorationWeight)}"><div class="round-no">T${r.round}</div><div class="round-arm">${r.arm}</div><div class="round-payoff">${signed(r.reward)}</div><div class="label-tau">${r.exploratory?'EXPLORE':'EXPLOIT'}</div><div class="round-weight">w: ${weightFmt(r.explorationWeight)}</div></div>`).join('')}</div>
       </section>
-      <div class="results-actions"><button type="button" class="primary-btn" data-action="replay">Play again <span aria-hidden="true">&rarr;</span></button><button type="button" class="secondary-btn" data-action="csv">Download decisions (CSV)</button><button type="button" class="secondary-btn" data-action="copy-results">Copy result summary</button>${state.classroom?'':'<button type="button" class="secondary-btn" data-action="new-draw">New randomized environment</button>'}</div>
+      <div class="results-actions">${replayButton()}<button type="button" class="secondary-btn" data-action="csv">Download decisions (CSV)</button><button type="button" class="secondary-btn" data-action="copy-results">Copy result summary</button>${state.classroom?'':'<button type="button" class="secondary-btn" data-action="new-draw">New randomized environment</button>'}</div>
       <div style="margin-top:30px"><div class="eyebrow">Debrief questions</div><div class="questions"><div class="question"><b>01 / EVIDENCE</b>Was your highest observed sample mean attached to the true best technology?</div><div class="question"><b>02 / STRATEGY</b>Does a large τw indicate insightful exploration, or merely repeated tests of poor-performing options?</div><div class="question"><b>03 / OBJECTIVE</b>What would change if the task were to maximize total payoffs instead of identify the best technology?</div></div></div>
     </main>`;
   }
-  function classLink(trials=state.draftTrials,key=state.draftSeed,mode=state.draftMode){
+  function classLink(trials=state.draftTrials,key=state.draftSeed,mode=state.draftMode,gamma=state.draftGamma,round=state.draftRound){
     if(window.location.protocol==='file:')return '';
-    const url=new URL(window.location.href);url.search='';url.hash='';url.searchParams.set('rounds',String(trials));url.searchParams.set('seed',key.trim()||state.seed);url.searchParams.set('mode',mode);url.searchParams.set('class','1');return url.href;
+    const url=new URL(window.location.href);url.search='';url.hash='';url.searchParams.set('rounds',String(trials));url.searchParams.set('seed',key.trim()||state.seed);url.searchParams.set('mode',mode);if(gamma!==GAMMA_DEFAULT)url.searchParams.set('gamma',String(gamma));if(round)url.searchParams.set('round',String(round));url.searchParams.set('class','1');return url.href;
   }
   function instructorDialog(){
     const key=state.draftSeed.trim()||state.seed;
     const link=classLink(state.draftTrials,key,state.draftMode);
-    const means=makeMeans(key,key);
+    const means=makeMeans(roundSeed(key,state.draftRound),roundSeed(key,state.draftRound));
     const sortedVals=Object.values(means).slice().sort((a,b)=>b-a);
     return `<div class="overlay" id="modalBackdrop"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="teacher-title">
       <div class="modal-top"><div><div class="eyebrow">Instructor tools</div><h2 id="teacher-title">Configure your class game</h2></div><button type="button" class="close-btn" aria-label="Close" data-action="close-teacher">&times;</button></div>
       <p class="subtle">The session key fixes the hidden <strong>set</strong> of five true means, so everyone in the class faces the same difficulty. Every student run then draws its own five free starting observations and its own payoff noise, so no two students (and no two replays) see the same numbers. Each results page and CSV carries a <strong>Run ID</strong> that reproduces that student's draws exactly.</p><p class="tiny" style="margin:9px 0 0"><strong>Difficulty:</strong> Five distinct hidden means are drawn for each session. The highest mean is between 92 and 100 (not always 100), the runner-up is 2–6 points below it, and the three weaker means lie within 12 points below the runner-up, so all five sit inside an 18-point band (never below 74). Means are then assigned to A–E. Individual observed payoffs can fall well outside that band because of noise. <strong>Starting trap:</strong> the five free starting observations are conditioned so that the true best technology never shows the highest starting value, so every student begins with a tempting wrong leader. Do not tell students this rule, or they will simply avoid the initial leader.</p><div class="divider"></div>
       <div class="teacher-third teacher-two">
-        <div class="teacher-field"><label for="teacher-trials">TRIAL BUDGET</label><select id="teacher-trials">${ROUNDS.map(n=>`<option value="${n}" ${state.draftTrials===n?'selected':''}>${n} trials</option>`).join('')}</select></div>
+        <div class="teacher-field"><label for="teacher-trials">TESTS PER GAME (5–60)</label><input id="teacher-trials" class="text-input" type="number" min="5" max="60" step="1" value="${state.draftTrials}"></div>
+        <div class="teacher-field"><label for="teacher-gamma">NOISE ±γ (0–40)</label><input id="teacher-gamma" class="text-input" type="number" min="0" max="40" step="0.5" value="${state.draftGamma}"></div>
+        <div class="teacher-field"><label for="teacher-round">ROUND (0 = none)</label><input id="teacher-round" class="text-input" type="number" min="0" max="99" step="1" value="${state.draftRound}"></div>
         <div class="teacher-field"><label for="teacher-seed">SESSION KEY</label><input id="teacher-seed" class="text-input" maxlength="80" spellcheck="false" value="${esc(state.draftSeed)}"></div>
       </div>
       <div class="teacher-field teacher-wide"><label for="teacher-mode">RANDOMIZATION</label><select id="teacher-mode">${Object.entries(RANDOMIZATION).map(([v,x])=>`<option value="${v}" ${state.draftMode===v?'selected':''}>${x.label}</option>`).join('')}</select><p class="tiny" style="margin:8px 0 0">${state.draftMode==='shared'?'Same five means on the same letters for the whole class. Students can compare notes on letters, so the answer key below applies to everyone.':'Each run also shuffles which letter carries which mean, so a neighbor\'s "C is best" is useless. Noise is always independent per run.'}</p></div>
       <div class="divider"></div><div class="small-label" style="margin-bottom:9px">Student class link</div>
       <div class="link-box" id="link-preview">${esc(link||'Host index.html online to generate a shareable student link.')}</div>
       <div class="results-actions" style="margin-top:14px"><button type="button" class="primary-btn" data-action="apply-teacher">Apply settings</button><button type="button" class="secondary-btn" data-action="copy-link" ${link?'':'disabled'}>Copy student link</button></div>
-      <p class="tiny">A class link hides the instructor setup and locks experiment settings in the interface. This is not secure exam proctoring: students can inspect a static page's code. <strong>Class dashboard:</strong> open <strong>dashboard.html</strong> (next to this file) to collect results and plot identification success against τ. With Firebase settings in config.js every finished game arrives live; without them, students press <em>Copy result code</em> on their results page and you paste the codes into the dashboard.</p>
+      <p class="tiny">A class link hides the instructor setup and locks experiment settings in the interface. This is not secure exam proctoring: students can inspect a static page's code. <strong>Class dashboard:</strong> open <strong>dashboard.html</strong> (next to this file) to run rounds (round number, noise γ, tests per game, open/close), collect results and plot identification success against τ. With Firebase settings in config.js every finished game arrives live; without them, students press <em>Copy result code</em> on their results page and you paste the codes into the dashboard.</p>
       <div class="divider"></div><div class="section-row"><div><h3 style="font-size:16px;margin:0">Hidden answer key</h3><div class="subtle">${state.draftMode==='shared'?'The value set and its letter assignment are fixed by the session key.':'The value set is fixed by the session key; letters are shuffled per run (see each student\'s CSV).'}</div></div><button type="button" class="secondary-btn" data-action="reveal-key">${state.teacherReveal?'Hide answer key':'Reveal answer key'}</button></div>
       <div id="answer-key">${state.teacherReveal?(state.draftMode==='shared'?`<table class="teacher-truth"><thead><tr><th>Technology</th><th>True mean</th></tr></thead><tbody>${ARMS.map(a=>`<tr><td>${a} ${a===trueBest(means)?'★ Best':''}</td><td>${means[a]}</td></tr>`).join('')}</tbody></table>`:`<table class="teacher-truth"><thead><tr><th>Rank</th><th>True mean</th><th>Technology</th></tr></thead><tbody>${sortedVals.map((v,i)=>`<tr><td>${i+1}${i===0?' ★ Best':''}</td><td>${v}</td><td>varies by run</td></tr>`).join('')}</tbody></table>`):'<p class="tiny" style="margin-top:11px">Keep this hidden when projecting your screen to students.</p>'}</div>
-      <div class="note" style="margin-top:17px"><strong>Recommended teaching setup:</strong> 20 trials, which takes about four minutes and leaves time for a second run on a fresh draw; choose 30 or 40 for a longer session. Payoff noise is fixed: uniform on ±${sig()} points. With 20 trials, simulated softmax agents identify the best technology 47% of the time when greedy and 72% at the best τ (30 trials: 48% and 80%); at ±24 noise both figures fall to 31% and 47% and luck swamps strategy, which is why wider noise was removed. After the game, compare identification accuracy against binary τb, payoff-gap-weighted τw and the softmax estimate τ̂. A higher exploration score is not automatically better.</div>
+      <div class="note" style="margin-top:17px"><strong>Recommended teaching setup:</strong> 20 trials, which takes about four minutes and leaves time for a second run on a fresh draw; choose 30 or 40 for a longer session. Payoff noise is uniform on ±γ points, set per round (default γ = 12; the class dashboard controls rounds live). With 20 trials at γ = 12, simulated softmax agents identify the best technology 47% of the time when greedy and 72% at the best τ (30 trials: 48% and 80%); at ±24 noise both figures fall to 31% and 47% and luck swamps strategy, which is why wider noise was removed. After the game, compare identification accuracy against binary τb, payoff-gap-weighted τw and the softmax estimate τ̂. A higher exploration score is not automatically better.</div>
     </section></div>`;
   }
   function render(top=false){
@@ -648,13 +677,13 @@
     state.actions.push({round,arm:a,reward:payoff,pullIndex:x.n+1,estimatedBefore:x.avg,benchmarkBefore:knownBest,meansBefore,observedGapBefore,exploratory,explorationWeight,runningTotal:totalPayoff()+payoff});
     state.phase='feedback';render();document.querySelector('.feedback')?.scrollIntoView({behavior:'smooth',block:'nearest'});
   }
-  function start(){state.runId=newRunId();state.screen='game';state.phase='playing';state.actions=[];state.pendingArm=null;state.selectedGuess=null;state.finalGuess=null;state.means=currentMeans();render(true);}
+  function start(){if(startBlocked())return;applyLive();state.runId=newRunId();state.screen='game';state.phase='playing';state.actions=[];state.pendingArm=null;state.selectedGuess=null;state.finalGuess=null;state.means=currentMeans();render(true);}
   function next(){if(state.screen!=='game'||state.phase!=='feedback')return;if(state.actions.length>=state.trials){state.screen='final';render(true);return;}state.phase='playing';render();document.querySelector('.arms-grid')?.scrollIntoView({behavior:'instant',block:'start'});}
   function replay(newDraw=false){if(newDraw){state.seed='LAB-'+Math.random().toString(36).slice(2,10).toUpperCase();}state.attempt+=1;state.submitStatus='idle';state.submitError='';start();}
   function applyTeacher(){
     const key=state.draftSeed.trim();if(!key){toast('Enter a session key');return;}
     if(state.actions.length>0&&state.screen!=='home'&&!window.confirm('Changing settings will reset your current experiment. Continue?'))return;
-    state.trials=state.draftTrials;state.seed=key;state.mode=state.draftMode;state.runId=newRunId();state.means=currentMeans();state.screen='home';state.phase='playing';state.actions=[];state.selectedGuess=null;state.finalGuess=null;state.teacherOpen=false;state.teacherReveal=false;render(true);toast('Class settings applied');
+    state.trials=state.draftTrials;state.seed=key;state.mode=state.draftMode;state.gamma=state.draftGamma;state.round=state.draftRound;state.runId=newRunId();state.means=currentMeans();state.screen='home';state.phase='playing';state.actions=[];state.selectedGuess=null;state.finalGuess=null;state.teacherOpen=false;state.teacherReveal=false;render(true);toast('Class settings applied');
   }
   async function copyText(text){
     try{if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(text);toast('Copied to clipboard');return;}
@@ -694,6 +723,8 @@
   });
   document.addEventListener('change',e=>{
     if(e.target.id==='teacher-trials'){state.draftTrials=getTrials(e.target.value);state.teacherReveal=false;render();}
+    if(e.target.id==='teacher-gamma'){state.draftGamma=getGamma(e.target.value);state.teacherReveal=false;render();}
+    if(e.target.id==='teacher-round'){state.draftRound=getRound(e.target.value);state.teacherReveal=false;render();}
     if(e.target.id==='teacher-mode'){state.draftMode=getMode(e.target.value);state.teacherReveal=false;render();}
   });
   document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if(state.teacherOpen){state.teacherOpen=false;render();}else if(state.pendingArm){state.pendingArm=null;render();}});
@@ -702,7 +733,7 @@
     const el=e.target.closest('[data-action]');if(!el)return;
     const action=el.dataset.action;
     if(action==='go-home'){e.preventDefault();if(state.screen==='home')return;if(state.actions.length&&!window.confirm('Leave this experiment? Current progress will be lost.'))return;state.screen='home';state.actions=[];state.pendingArm=null;state.phase='playing';state.finalGuess=null;render(true);}
-    else if(action==='teacher'){state.draftTrials=state.trials;state.draftSeed=state.seed;state.draftMode=state.mode;state.teacherReveal=false;state.teacherOpen=true;render();}
+    else if(action==='teacher'){state.draftTrials=state.trials;state.draftGamma=state.gamma;state.draftRound=state.round;state.draftSeed=state.seed;state.draftMode=state.mode;state.teacherReveal=false;state.teacherOpen=true;render();}
     else if(action==='close-teacher'){state.teacherOpen=false;state.teacherReveal=false;render();}
     else if(action==='start')start();
     else if(action==='invest'){if(state.screen==='game'&&state.phase==='playing'&&ARMS.includes(el.dataset.arm)){state.pendingArm=el.dataset.arm;render();}}
@@ -721,6 +752,7 @@
     else if(action==='copy-link'){const link=classLink();if(link)copyText(link);else toast('Host the page online to obtain a student link');}
   });
   render();
+  subscribeLive();
 })();
 
 </script>

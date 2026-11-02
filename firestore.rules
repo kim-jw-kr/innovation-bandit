@@ -35,6 +35,12 @@ service cloud.firestore {
     }
 
     // ---- Explore / Identify (Week 9) ----
+    // Live round control: the instructor's dashboard writes the current round, noise and budget; student pages read it.
+    match /bandit_settings/{doc} {
+      allow read: if true;
+      allow write: if true;
+    }
+
     // One document per finished game, written by the student's page when the final recommendation is submitted.
     // Document id = Run ID, so a game can be recorded only once. Anyone can read (the dashboard is a static page);
     // nobody can edit; deletes are allowed so the instructor's dashboard can remove mistakes and clear a class.
