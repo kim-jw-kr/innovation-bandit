@@ -45,7 +45,7 @@ Students need no account. Class settings are not secure; answers are inspectable
 
 **Number of technologies.** A round can use 5 (default) to 10 technologies (round control, `?arms=8`, or Instructor setup; letters A–J). The hidden-mean rule is unchanged (best, runner-up, and the rest within `spread` below the runner-up), the starting trap still holds, and the dashboard simulation, tabs and *Rounds compared* table follow the count. The reason to raise it: with five technologies and 20 tests a random tester still gets about five observations per option and identifies the best 61–63% of the time, so the success-versus-τ curve rises from greedy play and then stays flat. With eight technologies the same budget is spread thinner (simulated: greedy 45%, best τ 67%, random 48%), which gives the inverted U between greedy play and over-exploration.
 
-**Safe option.** The round control (and the payoff spec, as a fourth part `/safe3-6`) can give one of the five technologies a **known, fixed payoff**: it is a set distance below the best (drawn per session and round from the min–max range), its starting observation and every test return exactly that value, and students are told its value on the home page and on its card ("KNOWN PAYOFF", "Fixed payoff: every test returns exactly this"). It replaces one of the three lower means, is never equal to the runner-up, and the best technology still never leads the starting observations. Combined with the maximize-payoff objective it turns the game into the classic choice between a sure thing and uncertain alternatives: leaving the safe option is exploration that is paid for directly. Records carry `safeArm` and `safeValue`; the dashboard shows tests spent on the safe option per student (*Safe* column) and on average, and its simulated benchmarks model the safe option as noise-free.
+**Safe option (not exposed on the dashboard).** The payoff spec accepts a fourth part `/safe3-6` (student link or Instructor setup) that can give one of the five technologies a **known, fixed payoff**: it is a set distance below the best (drawn per session and round from the min–max range), its starting observation and every test return exactly that value, and students are told its value on the home page and on its card ("KNOWN PAYOFF", "Fixed payoff: every test returns exactly this"). It replaces one of the three lower means, is never equal to the runner-up, and the best technology still never leads the starting observations. Combined with the maximize-payoff objective it turns the game into the classic choice between a sure thing and uncertain alternatives: leaving the safe option is exploration that is paid for directly. Records carry `safeArm` and `safeValue`; the dashboard shows tests spent on the safe option per student (*Safe* column) and on average, and its simulated benchmarks model the safe option as noise-free.
 
 **Reference curve.** The dashed curve is computed in the browser: softmax agents with fixed τ play the exact game (same hidden-mean rule, starting trap, uniform noise ±γ and budget as the rows in view; 1,500 games per τ point, cached per γ and budget). It reproduces `simulate_tau.py` within sampling error (for example 46% greedy / 72% best τ at ±12 and 20 tests).
 
@@ -67,12 +67,14 @@ The student record holds only the summary of a game (session key, round, objecti
 
 ## Randomization
 
+**Modes.** `independent` (dashboard: *everything per student*): each student run draws its own set of true means from the true-payoff ranges, its own letters and its own noise, so no two students face the same values. `student` (*shared values, own letters*): one value set per session key and round, letters shuffled per run. `shared` (*same for everyone*): one set, same letters. The dashboard's "always the best" line and the simulated benchmarks work in every mode because each record carries its own true means.
+
 Three layers, all deterministic functions of text keys hashed with FNV-1a and scrambled with a mulberry-style mixer:
 
 | Layer | Keyed on | Varies across |
 |---|---|---|
-| Set of five true means | session key | classes |
-| Assignment of means to letters A–E | session key (`shared`) or session key + Run ID (`student`, default) | classes / every run |
+| Set of true means | session key + round (`student`, `shared`) or session key + round + Run ID (`independent`) | classes / every run |
+| Assignment of means to letters | session key (`shared`) or session key + Run ID (`student`, `independent`) | classes / every run |
 | Free starting observations and every paid payoff | session key + Run ID | every run |
 
 The free starting observations carry one extra rule: attempt 0, 1, 2, … of the five draws is taken from the Run ID stream, and the first attempt in which some other technology's draw strictly exceeds the true best technology's draw is kept. The accepted draws are genuine samples from the payoff distributions, but conditioned on the best technology not leading at the start (roughly a third of unconditioned attempts are rejected). The instructor dialog states this; the student-facing pages do not.

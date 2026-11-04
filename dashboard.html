@@ -110,14 +110,14 @@
 
 <div class="wrap">
   <section class="card control" id="controlBar">
-    <div class="section-row" style="margin-bottom:12px"><div><h2>Round control</h2><div class="subtle" id="controlSub">Students on the class link follow these settings live. Open a round to let them start; close it to stop new games. Tries per student lets a student play the round again; every try is recorded and the charts show all tries unless First try only is ticked. Objective changes what students are told to do: identify the best technology, or earn the highest total payoff (the running total is shown and the final pick is still asked). Safe option gives one technology a known, noise-free payoff a set distance below the best, so a payoff round becomes a choice between a sure thing and uncertain alternatives. Technologies (5–10): with 8, heavy exploration spreads 20 tests too thin and the success curve becomes an inverted U; with 5, random testing still does well. γ runs from 4 to 40: below 4 the starting trap cannot be produced.</div></div><span class="roundstate" id="roundState"></span></div>
+    <div class="section-row" style="margin-bottom:12px"><div><h2>Round control</h2><div class="subtle" id="controlSub">Students on the class link follow these settings live. Open a round to let them start; close it to stop new games. Tries per student lets a student play the round again; every try is recorded and the charts show all tries unless First try only is ticked. Randomization: everything per student gives each student their own set of true means, letters and noise. Objective changes what students are told to do: identify the best technology, or earn the highest total payoff (the running total is shown and the final pick is still asked). Technologies (5–10): with 8, heavy exploration spreads 20 tests too thin and the success curve becomes an inverted U; with 5, random testing still does well. γ runs from 4 to 40: below 4 the starting trap cannot be produced.</div></div><span class="roundstate" id="roundState"></span></div>
     <div class="fields">
       <div class="field"><label for="ctlSeed">Session key</label><input type="text" id="ctlSeed" maxlength="80" style="width:200px" value="SNU-INNOVATION-2026"></div>
       <div class="field"><label for="ctlRound">Round</label><input type="number" id="ctlRound" min="1" max="99" step="1" value="1" style="width:80px"></div>
       <div class="field"><label for="ctlGammaRange">Noise ±γ</label><div class="gamma"><input type="range" id="ctlGammaRange" min="4" max="40" step="0.5" value="12"><input type="number" id="ctlGamma" min="4" max="40" step="0.5" value="12" style="width:80px"></div></div>
       <div class="field"><label for="ctlTrials">Tests per game</label><input type="number" id="ctlTrials" min="5" max="60" step="1" value="20" style="width:90px"></div>
       <div class="field"><label for="ctlArms" title="5 to 10. With more technologies the same test budget is spread thinner, so heavy exploration finds the best less often and the success curve becomes an inverted U.">Technologies</label><input type="number" id="ctlArms" min="5" max="10" step="1" value="5" style="width:70px"></div>
-      <div class="field"><label for="ctlMode">Letters</label><select id="ctlMode"><option value="student">shuffled per student</option><option value="shared">same for everyone</option></select></div>
+      <div class="field"><label for="ctlMode" title="Everything per student: each student draws their own set of true means (from the ranges below), own letters and own noise. Shared values: one set per round, letters shuffled per student. Same for everyone: one set, same letters.">Randomization</label><select id="ctlMode"><option value="independent">everything per student</option><option value="student">shared values, own letters</option><option value="shared">same for everyone</option></select></div>
       <div class="field"><label for="ctlTries">Tries per student</label><select id="ctlTries"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="5">5</option><option value="0" selected>unlimited</option></select></div>
       <div class="field"><label for="ctlObjective">Objective</label><select id="ctlObjective"><option value="identify">identify the best</option><option value="profit">maximize total payoff</option></select></div>
     </div>
@@ -125,7 +125,6 @@
       <div class="field"><label>True payoffs · best mean, min–max</label><div class="gamma"><input type="number" id="ctlTopMin" min="20" max="100" step="1" value="92" style="width:72px"> – <input type="number" id="ctlTopMax" min="20" max="100" step="1" value="100" style="width:72px"></div></div>
       <div class="field"><label>Gap to runner-up, min–max</label><div class="gamma"><input type="number" id="ctlGapMin" min="1" max="30" step="1" value="2" style="width:72px"> – <input type="number" id="ctlGapMax" min="1" max="30" step="1" value="6" style="width:72px"></div></div>
       <div class="field"><label for="ctlSpread">Others within … below runner-up</label><input type="number" id="ctlSpread" min="3" max="40" step="1" value="12" style="width:80px"></div>
-      <div class="field"><label title="One technology with a known, fixed payoff (no noise, told to students) this many points below the best. 0 = no safe option.">Safe option: known payoff … below the best (0 = none)</label><div class="gamma"><input type="number" id="ctlSafeMin" min="0" max="30" step="1" value="0" style="width:72px"> – <input type="number" id="ctlSafeMax" min="0" max="30" step="1" value="0" style="width:72px"></div></div>
       <div class="field"><label>Resulting hidden means</label><div class="subtle" id="payoffPreview" style="padding-top:6px"></div></div>
     </div>
     <div class="actions">
@@ -215,7 +214,7 @@
       <label class="inline">Technologies <input type="number" id="linkArms" min="5" max="10" value="5" style="width:60px"></label>
       <label class="inline">±γ <input type="number" id="linkGamma" min="4" max="40" step="0.5" value="12" style="width:70px"></label>
       <label class="inline">Round <input type="number" id="linkRound" min="0" max="99" value="0" style="width:70px"></label>
-      <label class="inline">Letters <select id="linkMode"><option value="student">shuffled per student</option><option value="shared">shared</option></select></label>
+      <label class="inline">Randomization <select id="linkMode"><option value="independent">everything per student</option><option value="student">shared values, own letters</option><option value="shared">same for everyone</option></select></label>
       <label class="inline">True payoffs <input type="text" id="linkPayoff" value="92-100/2-6/12" style="width:160px" spellcheck="false" title="best min-max / gap min-max / spread, optionally /safe min-max"></label>
       <label class="inline">Objective <select id="linkObjective"><option value="identify">identify the best</option><option value="profit">maximize payoff</option></select></label></div>
     <div id="qr"></div>
@@ -261,7 +260,7 @@
   const payoffStr=p=>`${p.topMin}-${p.topMax}/${p.gapMin}-${p.gapMax}/${p.spread}${p.safeMax?`/safe${p.safeMin}-${p.safeMax}`:''}`;
   function parsePayoff(str){const m=String(str||'').trim().match(/^(\d+)\s*-\s*(\d+)\s*\/\s*(\d+)\s*-\s*(\d+)\s*\/\s*(\d+)(?:\s*\/\s*safe\s*(\d+)\s*-\s*(\d+))?$/i);return m?normPayoff({topMin:m[1],topMax:m[2],gapMin:m[3],gapMax:m[4],spread:m[5],safeMin:m[6]||0,safeMax:m[7]||0}):normPayoff(PAYOFF_DEFAULT);}
   const payoffText=p=>`best ${p.topMin}–${p.topMax} · runner-up ${p.gapMin}–${p.gapMax} below · other${p.safeMax?' two':' three'} within ${p.spread} below the runner-up${p.safeMax?` · one SAFE technology with a known, noise-free payoff ${p.safeMin}–${p.safeMax} below the best`:''} (band ≈ ${p.topMax-p.topMin+p.gapMax+p.spread} points)`;
-  function ctlPayoff(){return normPayoff({topMin:$('ctlTopMin').value,topMax:$('ctlTopMax').value,gapMin:$('ctlGapMin').value,gapMax:$('ctlGapMax').value,spread:$('ctlSpread').value,safeMin:$('ctlSafeMin').value,safeMax:$('ctlSafeMax').value});}
+  function ctlPayoff(){return normPayoff({topMin:$('ctlTopMin').value,topMax:$('ctlTopMax').value,gapMin:$('ctlGapMin').value,gapMax:$('ctlGapMax').value,spread:$('ctlSpread').value,safeMin:0,safeMax:0});}
 
   // ---- Normalisation ----
   function normalize(o,source){
@@ -581,7 +580,7 @@
   }
 
   // ---- Round control (Firestore settings document) ----
-  function ctlDraft(){return {sessionKey:$('ctlSeed').value.trim()||'SNU-INNOVATION-2026',round:Math.round(clampNum($('ctlRound').value,1,99,1)),gamma:Math.round(clampNum($('ctlGamma').value,4,40,12)*10)/10,trials:Math.round(clampNum($('ctlTrials').value,5,60,20)),arms:Math.round(clampNum($('ctlArms').value,5,10,5)),mode:$('ctlMode').value==='shared'?'shared':'student',maxTries:Math.round(clampNum($('ctlTries').value,0,99,0)),objective:$('ctlObjective').value==='profit'?'profit':'identify',payoffs:ctlPayoff()};}
+  function ctlDraft(){return {sessionKey:$('ctlSeed').value.trim()||'SNU-INNOVATION-2026',round:Math.round(clampNum($('ctlRound').value,1,99,1)),gamma:Math.round(clampNum($('ctlGamma').value,4,40,12)*10)/10,trials:Math.round(clampNum($('ctlTrials').value,5,60,20)),arms:Math.round(clampNum($('ctlArms').value,5,10,5)),mode:['shared','independent'].includes($('ctlMode').value)?$('ctlMode').value:'student',maxTries:Math.round(clampNum($('ctlTries').value,0,99,0)),objective:$('ctlObjective').value==='profit'?'profit':'identify',payoffs:ctlPayoff()};}
   function writeSettings(patch){
     if(!db){toast('Round control needs Firebase (config.js)');return Promise.resolve();}
     patch.updatedAt=firebase.firestore.FieldValue.serverTimestamp();
@@ -597,7 +596,7 @@
   function fillControl(){
     if(!settings)return;
     const active=document.activeElement;const set=(id,v)=>{const el=$(id);if(el!==active&&v!==undefined&&v!==null)el.value=v;};
-    if(!ctlDirty){set('ctlSeed',settings.sessionKey);set('ctlRound',settings.round);set('ctlGamma',settings.gamma);set('ctlGammaRange',settings.gamma);set('ctlTrials',settings.trials);set('ctlArms',Math.round(clampNum(settings.arms,5,10,5)));set('ctlMode',settings.mode);set('ctlTries',String(Math.round(Number(settings.maxTries)||0)));set('ctlObjective',settings.objective==='profit'?'profit':'identify');const p=normPayoff(settings.payoffs||PAYOFF_DEFAULT);set('ctlTopMin',p.topMin);set('ctlTopMax',p.topMax);set('ctlGapMin',p.gapMin);set('ctlGapMax',p.gapMax);set('ctlSpread',p.spread);set('ctlSafeMin',p.safeMin);set('ctlSafeMax',p.safeMax);}
+    if(!ctlDirty){set('ctlSeed',settings.sessionKey);set('ctlRound',settings.round);set('ctlGamma',settings.gamma);set('ctlGammaRange',settings.gamma);set('ctlTrials',settings.trials);set('ctlArms',Math.round(clampNum(settings.arms,5,10,5)));set('ctlMode',settings.mode);set('ctlTries',String(Math.round(Number(settings.maxTries)||0)));set('ctlObjective',settings.objective==='profit'?'profit':'identify');const p=normPayoff(settings.payoffs||PAYOFF_DEFAULT);set('ctlTopMin',p.topMin);set('ctlTopMax',p.topMax);set('ctlGapMin',p.gapMin);set('ctlGapMax',p.gapMax);set('ctlSpread',p.spread);}
   }
   function renderControl(){
     $('payoffPreview').textContent=payoffText(ctlPayoff());
@@ -681,7 +680,7 @@
   ['binsInput','firstOnly','rateLine','sessionSel'].forEach(id=>$(id).addEventListener('change',renderAll));
   $('ctlGammaRange').addEventListener('input',()=>{$('ctlGamma').value=$('ctlGammaRange').value;ctlDirty=true;renderControl();});
   $('ctlGamma').addEventListener('input',()=>{$('ctlGammaRange').value=clampNum($('ctlGamma').value,4,40,12);ctlDirty=true;renderControl();});
-  ['ctlSeed','ctlRound','ctlTrials','ctlArms','ctlMode','ctlTries','ctlObjective','ctlTopMin','ctlTopMax','ctlGapMin','ctlGapMax','ctlSpread','ctlSafeMin','ctlSafeMax'].forEach(id=>$(id).addEventListener('input',()=>{ctlDirty=true;renderControl();}));
+  ['ctlSeed','ctlRound','ctlTrials','ctlArms','ctlMode','ctlTries','ctlObjective','ctlTopMin','ctlTopMax','ctlGapMin','ctlGapMax','ctlSpread'].forEach(id=>$(id).addEventListener('input',()=>{ctlDirty=true;renderControl();}));
   $('openBtn').addEventListener('click',()=>{ctlDirty=false;openRound();});
   $('closeBtn').addEventListener('click',closeRound);
   $('nextBtn').addEventListener('click',()=>{ctlDirty=false;nextRound();});
