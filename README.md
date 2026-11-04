@@ -130,6 +130,8 @@ observed_mean_i = (free_start_i + sum(additional_payoffs_i)) / (1 + n_i)
 
 ## Exploration measures
 
+**Rank-weighted exploration τr (added 2026-11-04, shown on the student page and the dashboard in place of τw).** Before each test the technologies are ranked by their running averages at that moment (rank 1 = highest). The test receives weight `(rank - 1) / (K - 1)`, where `K` is the number of technologies, so testing the leader weighs 0, the second-ranked `1/(K-1)` and the lowest-ranked 1; `tau_r` is the mean weight over the `T` tests. Unlike τw it does not depend on γ or on the size of the gaps, so it is comparable across rounds with different noise. τw is still computed and stored (`tauW` in the record, `tau_weighted_exploration_index` in the CSV, which also gains `rank_before`, `rank_weight` and `tau_rank_exploration_index` columns) but is no longer displayed.
+
 Let `m_i,t-1` be the observed sample mean of technology `i` *before* student choice `t`, `m_best,t-1 = max_i m_i,t-1`, and `g_t = max(0, m_best,t-1 - m_chosen,t-1)`. `T` is the number of student-selected trials. The five free observations are not choices and never enter the numerator or denominator.
 
 **1. Binary exploration index** (descriptive)
