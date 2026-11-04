@@ -110,7 +110,7 @@
 
 <div class="wrap">
   <section class="card control" id="controlBar">
-    <div class="section-row" style="margin-bottom:12px"><div><h2>Round control</h2><div class="subtle" id="controlSub">Students on the class link follow these settings live. Open a round to let them start; close it to stop new games. Tries per student lets a student play the round again; every try is recorded and the charts show all tries unless First try only is ticked. γ runs from 4 to 40: below 4 the starting trap cannot be produced.</div></div><span class="roundstate" id="roundState"></span></div>
+    <div class="section-row" style="margin-bottom:12px"><div><h2>Round control</h2><div class="subtle" id="controlSub">Students on the class link follow these settings live. Open a round to let them start; close it to stop new games. Tries per student lets a student play the round again; every try is recorded and the charts show all tries unless First try only is ticked. Objective changes what students are told to do: identify the best technology, or earn the highest total payoff (the running total is shown and the final pick is still asked). γ runs from 4 to 40: below 4 the starting trap cannot be produced.</div></div><span class="roundstate" id="roundState"></span></div>
     <div class="fields">
       <div class="field"><label for="ctlSeed">Session key</label><input type="text" id="ctlSeed" maxlength="80" style="width:200px" value="SNU-INNOVATION-2026"></div>
       <div class="field"><label for="ctlRound">Round</label><input type="number" id="ctlRound" min="1" max="99" step="1" value="1" style="width:80px"></div>
@@ -118,6 +118,7 @@
       <div class="field"><label for="ctlTrials">Tests per game</label><input type="number" id="ctlTrials" min="5" max="60" step="1" value="20" style="width:90px"></div>
       <div class="field"><label for="ctlMode">Letters</label><select id="ctlMode"><option value="student">shuffled per student</option><option value="shared">same for everyone</option></select></div>
       <div class="field"><label for="ctlTries">Tries per student</label><select id="ctlTries"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="5">5</option><option value="0" selected>unlimited</option></select></div>
+      <div class="field"><label for="ctlObjective">Objective</label><select id="ctlObjective"><option value="identify">identify the best</option><option value="profit">maximize total payoff</option></select></div>
     </div>
     <div class="fields" style="margin-top:12px">
       <div class="field"><label>True payoffs · best mean, min–max</label><div class="gamma"><input type="number" id="ctlTopMin" min="20" max="100" step="1" value="92" style="width:72px"> – <input type="number" id="ctlTopMax" min="20" max="100" step="1" value="100" style="width:72px"></div></div>
@@ -165,6 +166,13 @@
     </section>
 
     <section class="card" style="margin-top:16px">
+      <div class="section-row"><div><h2>Total payoff by exploration τ</h2><div class="subtle" id="profitSub">One dot per game: the total payoff of the student's tests against their τ, teal if they also found the best technology. For τ̂ the dashed curve is the mean payoff of a simulated fixed-τ agent, and the dotted line is the expected payoff of always testing the best technology.</div></div></div>
+      <div class="controls"><div class="seg" id="paySeg"><button data-p="paid" class="on">Realized payoff</button><button data-p="exp">Expected payoff (noise removed)</button></div><span class="subtle" id="payNote"></span></div>
+      <div class="chart-box"><canvas id="profitChart"></canvas></div>
+      <div class="legend"><span><i style="background:var(--teal)"></i>Found the best</span><span><i style="background:var(--coral)"></i>Missed</span><span><i class="dash"></i>Simulated fixed-τ agent (mean payoff)</span><span><i class="dash" style="border-top-style:dotted;border-color:var(--muted)"></i>Always the best technology</span></div>
+    </section>
+
+    <section class="card" style="margin-top:16px">
       <div class="section-row"><div><h2 id="foundTitle">Students who found the best technology</h2><div class="subtle">Click a column to sort. Click a row to highlight the student in the charts.</div></div><span class="pill" id="foundPill">0</span></div>
       <div style="overflow:auto"><table id="foundTable"></table></div>
     </section>
@@ -179,6 +187,7 @@
     <div class="card"><h2 style="font-size:16px;margin-bottom:8px">Reading the chart</h2>
       <p class="note"><strong>τ̂</strong> is the softmax temperature fitted to each student's choices (payoff points, log scale): near 0 means always testing the current leader; large values mean choices barely depended on the sample means. <strong>τb</strong> is the share of non-greedy tests; <strong>τw</strong> weights each non-greedy test by how far below the leader it was, in units of the round's noise γ (a gap of γ or more counts fully).</p>
       <p class="note">The simulated benchmarks in the summary come from softmax agents with a fixed τ playing the same game in this page (same hidden-mean rule, starting trap, noise ±γ and test budget as the round in view; 1,500 games per point). Students often beat them at the same τ̂ because they explore early and exploit late, which a fixed-τ agent cannot do.</p>
+      <p class="note"><strong>Total payoff chart.</strong> Realized payoff is the sum of the payoffs a student's tests actually returned (what they experienced, noise included). Expected payoff replaces each test by the true mean of the technology tested, so it isolates the cost of the student's choices from luck; its distance to the dotted line is the expected shortfall (regret). In a maximize-payoff round this is the score.</p>
       <p class="note">Hollow dots are students whose τ̂ sits at a grid bound: pure greedy play (left) or choices with no attraction to the leader (right). Only a bound on τ is identified for them.</p>
     </div>
   </aside>
@@ -203,7 +212,8 @@
       <label class="inline">±γ <input type="number" id="linkGamma" min="4" max="40" step="0.5" value="12" style="width:70px"></label>
       <label class="inline">Round <input type="number" id="linkRound" min="0" max="99" value="0" style="width:70px"></label>
       <label class="inline">Letters <select id="linkMode"><option value="student">shuffled per student</option><option value="shared">shared</option></select></label>
-      <label class="inline">True payoffs <input type="text" id="linkPayoff" value="92-100/2-6/12" style="width:130px" spellcheck="false"></label></div>
+      <label class="inline">True payoffs <input type="text" id="linkPayoff" value="92-100/2-6/12" style="width:130px" spellcheck="false"></label>
+      <label class="inline">Objective <select id="linkObjective"><option value="identify">identify the best</option><option value="profit">maximize payoff</option></select></label></div>
     <div id="qr"></div>
     <div class="mono" id="linkText"></div>
     <div class="row"><button class="btn primary" id="copyLink">Copy link</button><span class="subtle">If this page is opened from a local file, host the folder online (e.g. GitHub Pages) to get a shareable link.</span></div>
@@ -227,12 +237,12 @@
   const TEAL='#167c73',CORAL='#d9583b',NAVY='#152b31',MUTED='#64747a',LINE='#dce5e3';
   const COLLECTION=CFG.collection||'bandit_results',SETTINGS_DOC='bandit_settings/session';
   // Field order of the student's result code (must match CODE_FIELDS in index.html; new fields are appended).
-  const CODE_FIELDS=['v','sessionKey','runId','name','mode','trials','gamma','attempt','finalPick','trueBest','correct','tauB','tauW','tauHat','tauLow','tauHigh','tauAtLow','tauAtHigh','pseudoR2','loss','nonGreedy','retested','paidPayoff','sequence','initialDraws','trueMeans','round','payoffSpec'];
-  const NUM=new Set(['v','trials','gamma','attempt','tauB','tauW','tauHat','tauLow','tauHigh','pseudoR2','loss','nonGreedy','retested','paidPayoff','round']);
+  const CODE_FIELDS=['v','sessionKey','runId','name','mode','trials','gamma','attempt','finalPick','trueBest','correct','tauB','tauW','tauHat','tauLow','tauHigh','tauAtLow','tauAtHigh','pseudoR2','loss','nonGreedy','retested','paidPayoff','sequence','initialDraws','trueMeans','round','payoffSpec','objective','bestMean','expPayoff'];
+  const NUM=new Set(['v','trials','gamma','attempt','tauB','tauW','tauHat','tauLow','tauHigh','pseudoR2','loss','nonGreedy','retested','paidPayoff','round','bestMean','expPayoff']);
   const BOOL=new Set(['correct','tauAtLow','tauAtHigh']);
 
   // ---- State ----
-  let liveRows=[],localRows=[],db=null,settings=null,pinOk=false,measure='hat',highlightId=null,viewRound='all';
+  let liveRows=[],localRows=[],db=null,settings=null,pinOk=false,measure='hat',payMeasure='paid',highlightId=null,viewRound='all';
   let sortKey={found:'tauHat',miss:'tauHat'},sortDir={found:1,miss:1};
   try{localRows=JSON.parse(localStorage.getItem('idlab.rows.v1')||'[]');}catch(e){localRows=[];}
   const saveLocal=()=>{try{localStorage.setItem('idlab.rows.v1',JSON.stringify(localRows));}catch(e){}};
@@ -265,6 +275,9 @@
     if(r.round===null)r.round=0;
     if(r.gamma===null)r.gamma=12;
     if(!r.payoffSpec)r.payoffSpec='92-100/2-6/12';
+    r.objective=r.objective==='profit'?'profit':'identify';
+    const tm=r.trueMeans?String(r.trueMeans).split(';').map(Number):[];
+    if(tm.length===5&&tm.every(Number.isFinite)){if(r.bestMean===null)r.bestMean=Math.max(...tm);if(r.expPayoff===null&&r.sequence){let s=0,ok=true;for(const ch of r.sequence){const i='ABCDE'.indexOf(ch);if(i<0){ok=false;break;}s+=tm[i];}if(ok)r.expPayoff=s;}}
     if(r.tauHat!==null){if(r.tauHat<=TAU_MIN*1.0001)r.tauAtLow=true;if(r.tauHat>=TAU_MAX*0.9999)r.tauAtHigh=true;}
     r.source=source;r.createdAtMs=Number(o.createdAtMs)||Date.now();
     return r;
@@ -365,7 +378,7 @@
   function simulateCurve(gamma,T,games,spec){
     const taus=Array.from({length:20},(_,i)=>TAU_MIN*Math.pow(TAU_MAX/TAU_MIN,i/19));
     return taus.map(tau=>{
-      let ok=0;
+      let ok=0,pay=0,expv=0;
       for(let g=0;g<games;g++){
         const top=spec.topMin+Math.floor(Math.random()*(spec.topMax-spec.topMin+1)),runner=top-(spec.gapMin+Math.floor(Math.random()*(spec.gapMax-spec.gapMin+1)));let floor=Math.max(0,runner-spec.spread);if(runner-floor<3)floor=runner-3;
         const pool=[];for(let v=floor;v<runner;v++)pool.push(v);
@@ -378,12 +391,12 @@
           const m=[0,1,2,3,4].map(i=>tot[i]/cnt[i]);const mx=Math.max(...m);
           const w=m.map(v=>Math.exp((v-mx)/tau));const sum=w[0]+w[1]+w[2]+w[3]+w[4];
           let u=Math.random()*sum,c=0;for(;c<4;c++){u-=w[c];if(u<=0)break;}
-          tot[c]+=Math.round(mu[c]+gamma*(2*Math.random()-1));cnt[c]++;
+          const draw=Math.round(mu[c]+gamma*(2*Math.random()-1));tot[c]+=draw;cnt[c]++;pay+=draw;expv+=mu[c];
         }
         let pick=0,bestM=tot[0]/cnt[0];for(let a=1;a<5;a++){const v=tot[a]/cnt[a];if(v>bestM){bestM=v;pick=a;}}
         if(pick===0)ok++;
       }
-      return [tau,ok/games];
+      return [tau,ok/games,pay/games,expv/games]; // [τ, P(found best), mean realized payoff, mean expected payoff]
     });
   }
   function simFor(gamma,T,spec){
@@ -405,6 +418,25 @@
     plugins:{legend:{position:'top',align:'end',labels:{boxWidth:10,usePointStyle:true}},tooltip:{callbacks:{title:items=>{const b=items[0]&&items[0].raw&&items[0].raw._b;return b?`τ ${xLabel(b.lo)} – ${xLabel(b.hi)}`:'';}}}},
     scales:{x:{type:'linear',stacked:true,grid:{color:LINE},ticks:{autoSkip:false,maxRotation:0}},y:{stacked:true,beginAtZero:true,ticks:{precision:0},grid:{color:LINE},title:{display:true,text:'Students'}}}}});
 
+  const payOf=r=>payMeasure==='paid'?r.paidPayoff:r.expPayoff;
+  const profitChart=new Chart($('profitChart'),{type:'scatter',data:{datasets:[]},options:{responsive:true,maintainAspectRatio:false,animation:false,interaction:{mode:'nearest',intersect:true},
+    plugins:{legend:{display:false},tooltip:{callbacks:{title:()=> '',label:c=>{const raw=c.raw||{};if(raw._r){const r=raw._r;const mx=r.bestMean!==null&&r.trials?Math.round(r.bestMean*r.trials):null;return [`${r.name}${r.round?' · round '+r.round:''} · ${payMeasure==='paid'?'payoff':'expected payoff'} ${Math.round(c.parsed.y)}${mx!==null?' of '+mx+' (shortfall '+(mx-Math.round(c.parsed.y))+')':''}`,`${r.correct?'found the best':'missed ('+r.finalPick+' vs '+r.trueBest+')'} · τ̂ ${r.tauHat===null?'–':(r.tauAtLow?'< '+TAU_MIN:r.tauAtHigh?'> '+TAU_MAX:fmtTau(r.tauHat))} · τb ${r.tauB?.toFixed(2)} · τw ${r.tauW?.toFixed(2)} · ±γ ${fmtG(r.gamma)}`,`Sequence ${r.sequence}`];}if(raw._s)return `Simulated agent, τ ${fmtTau(raw._s)}: mean ${payMeasure==='paid'?'payoff':'expected payoff'} ${Math.round(c.parsed.y)}`;if(raw._max)return `Always the best technology: ${Math.round(c.parsed.y)} expected`;return '';}}}},
+    scales:{x:{type:'linear',grid:{color:LINE},title:{display:true,text:''},ticks:{autoSkip:false,maxRotation:0}},y:{grid:{color:LINE},title:{display:true,text:'Total payoff over the tests (points)'}}},
+    onClick:(e,active)=>{const el=active&&active[0];if(!el)return;const raw=profitChart.data.datasets[el.datasetIndex].data[el.index];if(raw&&raw._r){highlightId=highlightId===raw._r.runId?null:raw._r.runId;renderAll();}}}});
+  function renderProfit(rows){
+    const e=edges();applyXScale(profitChart,e);
+    const vs=viewSetting(rows);
+    const pts=rows.filter(r=>tauOf(r)!==null&&tauOf(r)!==undefined&&payOf(r)!==null&&payOf(r)!==undefined).map(r=>({x:xOf(tauOf(r)),y:payOf(r),_r:r}));
+    const ds=[{type:'scatter',label:'Students',order:1,data:pts,pointRadius:c=>{const r=c.raw&&c.raw._r;return r&&r.runId===highlightId?9:5.5;},pointHoverRadius:8,
+      pointBackgroundColor:c=>{const r=c.raw&&c.raw._r;return r&&r.correct?'rgba(22,124,115,0.75)':'rgba(217,88,59,0.75)';},pointBorderColor:c=>{const r=c.raw&&c.raw._r;return r&&r.runId===highlightId?NAVY:(r&&r.correct?TEAL:CORAL);},pointBorderWidth:c=>{const r=c.raw&&c.raw._r;return r&&r.runId===highlightId?3:1;}}];
+    const withMax=rows.filter(r=>r.bestMean!==null&&r.trials);
+    const maxPay=withMax.length?withMax.reduce((s,r)=>s+r.bestMean*r.trials,0)/withMax.length:vs.T*(vs.spec.topMin+vs.spec.topMax)/2;
+    ds.push({type:'line',label:'Always the best',order:3,data:[{x:e[0],y:maxPay,_max:true},{x:e[e.length-1],y:maxPay,_max:true}],borderColor:MUTED,borderDash:[2,4],borderWidth:1.5,pointRadius:0,pointHitRadius:6});
+    const sim=measure==='hat'?simFor(vs.gamma,vs.T,vs.spec):null;
+    if(sim&&sim[0].length>3)ds.push({type:'line',label:'Simulated',order:2,data:sim.map(p=>({x:Math.log10(p[0]),y:payMeasure==='paid'?p[2]:p[3],_s:p[0]})),borderColor:NAVY,borderDash:[6,4],borderWidth:2,pointRadius:0,pointHitRadius:6,tension:0.3});
+    $('payNote').textContent=measure==='hat'?'':'The simulated curve is drawn on the τ̂ axis only.';
+    profitChart.data.datasets=ds;profitChart.update('none');
+  }
   function applyXScale(chart,e){
     const sc=chart.options.scales.x;sc.min=e[0];sc.max=e[e.length-1];
     sc.afterBuildTicks=scale=>{scale.ticks=e.map(v=>({value:v}));};
@@ -456,8 +488,8 @@
     const greedy=rows.filter(r=>r.tauB===0).length;
     const line=(k,v)=>`<div class="stat"><span>${k}</span><b>${v}</b></div>`;
     $('stats').innerHTML=n?
-      line('View',viewRound==='all'?'All rounds':viewRound===0?'No round':'Round '+viewRound)+line('Noise ±γ · tests',`${[...new Set(rows.map(r=>fmtG(r.gamma)))].join(', ')} · ${[...new Set(rows.map(r=>r.trials))].join(', ')}`)+line('True payoffs',[...new Set(rows.map(r=>r.payoffSpec))].join(', '))+line('Games shown',n)+line('Found the best',`${ok.length} (${pct(ok.length/n)})`)+line('Pure greedy (τb = 0)',`${greedy} (${pct(greedy/n)})`)+line('Median non-greedy tests',`${median(rows.map(r=>r.nonGreedy).filter(v=>v!==null))??'–'} of ${vs.T}`)+line('Median technologies retested',`${median(rows.map(r=>r.retested).filter(v=>v!==null))??'–'} / 5`)+line('Median τb · τw',`${median(rows.map(r=>r.tauB))?.toFixed(2)} · ${median(rows.map(r=>r.tauW))?.toFixed(2)}`)+line('Mean identification loss',`${(rows.reduce((s,r)=>s+(r.loss||0),0)/n).toFixed(1)} pts`)
-      +(pts?`<div class="note" style="margin-top:10px"><strong>Simulated benchmarks (±γ ${fmtG(vs.gamma)}, ${vs.T} tests, payoffs ${payoffStr(vs.spec)}):</strong> greedy agent ${pct(simGreedy)} · best fixed-τ agent ${pct(simBest)} · near-random choice ${pct(simRand)}.</div>`:'')
+      line('View',viewRound==='all'?'All rounds':viewRound===0?'No round':'Round '+viewRound)+line('Noise ±γ · tests',`${[...new Set(rows.map(r=>fmtG(r.gamma)))].join(', ')} · ${[...new Set(rows.map(r=>r.trials))].join(', ')}`)+line('True payoffs',[...new Set(rows.map(r=>r.payoffSpec))].join(', '))+line('Games shown',n)+line('Found the best',`${ok.length} (${pct(ok.length/n)})`)+line('Pure greedy (τb = 0)',`${greedy} (${pct(greedy/n)})`)+line('Median non-greedy tests',`${median(rows.map(r=>r.nonGreedy).filter(v=>v!==null))??'–'} of ${vs.T}`)+line('Median technologies retested',`${median(rows.map(r=>r.retested).filter(v=>v!==null))??'–'} / 5`)+line('Median τb · τw',`${median(rows.map(r=>r.tauB))?.toFixed(2)} · ${median(rows.map(r=>r.tauW))?.toFixed(2)}`)+line('Mean identification loss',`${(rows.reduce((s,r)=>s+(r.loss||0),0)/n).toFixed(1)} pts`)+(()=>{const p=rows.filter(r=>r.paidPayoff!==null),q=rows.filter(r=>r.expPayoff!==null&&r.bestMean!==null&&r.trials);return (p.length?line('Mean total payoff',`${Math.round(p.reduce((s,r)=>s+r.paidPayoff,0)/p.length)} pts`):'')+(q.length?line('Mean expected shortfall',`${Math.round(q.reduce((s,r)=>s+r.bestMean*r.trials-r.expPayoff,0)/q.length)} pts`):'');})()
+      +(pts?`<div class="note" style="margin-top:10px"><strong>Simulated benchmarks (±γ ${fmtG(vs.gamma)}, ${vs.T} tests, payoffs ${payoffStr(vs.spec)}):</strong> greedy agent ${pct(simGreedy)} · best fixed-τ agent ${pct(simBest)} · near-random choice ${pct(simRand)}.${pts[0].length>3?` Mean total payoff: greedy ${Math.round(pts[0][2])} · best τ ${Math.round(Math.max(...pts.map(p=>p[2])))} · near-random ${Math.round(pts[pts.length-1][2])}.`:''}</div>`:'')
       :'<p class="note">Open a round and let students play, or import results, to see class statistics.</p>';
   }
 
@@ -473,22 +505,24 @@
     const gamma=rows.length?mode(rows.map(x=>x.gamma),null):cfg?Number(cfg.gamma):null;
     const T=rows.length?mode(rows.map(x=>x.trials),null):cfg?Number(cfg.trials):null;
     let spec=null;if(rows.length){const c={};rows.forEach(x=>{c[x.payoffSpec]=(c[x.payoffSpec]||0)+1;});spec=parsePayoff(Object.keys(c).sort((a,b)=>c[b]-c[a])[0]);}else if(cfg&&cfg.payoffs)spec=normPayoff(cfg.payoffs);
-    return {rows:dedupe(rows),gamma,T,spec};
+    const objective=rows.length?(rows.filter(x=>x.objective==='profit').length*2>rows.length?'profit':'identify'):cfg&&cfg.objective==='profit'?'profit':'identify';
+    return {rows:dedupe(rows),gamma,T,spec,objective};
   }
   function renderTabs(){
     const rounds=roundsPresent();const box=$('roundTabs');box.innerHTML='';
     if(viewRound!=='all'&&!rounds.includes(viewRound))viewRound='all';
     const mkTab=(key,label,sub)=>{const b=document.createElement('button');b.className='tab'+(viewRound===key?' on':'');b.innerHTML=esc(label)+(sub?`<small>${esc(sub)}</small>`:'');b.addEventListener('click',()=>{viewRound=key;highlightId=null;renderAll();});box.appendChild(b);};
     mkTab('all','All rounds',`${dedupe(sessionRows()).length}`);
-    rounds.forEach(r=>{const i=roundInfo(r);const isCur=settings&&Number(settings.round)===r&&(!$('sessionSel').value||$('sessionSel').value===settings.sessionKey);mkTab(r,r===0?'No round':'Round '+r,`${i.gamma!==null?'±'+fmtG(i.gamma):''}${i.T?' · '+i.T:''} · ${i.rows.length}${isCur?(settings.open!==false?' · open':' · closed'):''}`);});
+    rounds.forEach(r=>{const i=roundInfo(r);const isCur=settings&&Number(settings.round)===r&&(!$('sessionSel').value||$('sessionSel').value===settings.sessionKey);mkTab(r,r===0?'No round':'Round '+r,`${i.objective==='profit'?'profit · ':''}${i.gamma!==null?'±'+fmtG(i.gamma):''}${i.T?' · '+i.T:''} · ${i.rows.length}${isCur?(settings.open!==false?' · open':' · closed'):''}`);});
     // comparison table
     const card=$('byRoundCard');
     const show=viewRound==='all'&&rounds.length>1;
     card.hidden=!show;
     if(show){
       const trs=rounds.map(r=>{const i=roundInfo(r),n=i.rows.length,ok=i.rows.filter(x=>x.correct).length,ci=wilson(ok,n);const key=i.gamma!==null&&i.T?i.gamma+'|'+i.T+'|'+payoffStr(i.spec||PAYOFF_DEFAULT):null;const sim=key&&simCache.has(key)?simCache.get(key):null;const simBest=sim?Math.max(...sim.map(p=>p[1])):null,simGreedy=sim?sim[0][1]:null;
-        return `<tr><td><strong>${r===0?'No round':'Round '+r}</strong></td><td class="num">${i.gamma===null?'–':'±'+fmtG(i.gamma)}</td><td class="num">${i.T??'–'}</td><td class="num">${i.spec?payoffStr(i.spec):'–'}</td><td class="num">${n}</td><td class="num">${n?`<strong>${pct(ok/n)}</strong> <span class="subtle">(${ok}/${n}${ci?', '+pct(ci[0])+'–'+pct(ci[1]):''})</span>`:'–'}</td><td class="num">${n?fmtTauOrDash(median(i.rows.map(x=>x.tauHat).filter(v=>v!==null))):'–'}</td><td class="num">${n?pct(i.rows.filter(x=>x.tauB===0).length/n):'–'}</td><td class="num">${sim?`${pct(simGreedy)} / ${pct(simBest)}`:'–'}</td></tr>`;}).join('');
-      $('byRoundTable').innerHTML=`<thead><tr><th>Round</th><th>Noise ±γ</th><th>Tests</th><th>True payoffs</th><th>Students</th><th>Found the best</th><th>Median τ̂</th><th>Pure greedy</th><th>Sim. greedy / best τ</th></tr></thead><tbody>${trs}</tbody>`;
+        const pp=i.rows.filter(x=>x.paidPayoff!==null),qq=i.rows.filter(x=>x.expPayoff!==null&&x.bestMean!==null&&x.trials);const meanPay=pp.length?Math.round(pp.reduce((s,x)=>s+x.paidPayoff,0)/pp.length):null,meanShort=qq.length?Math.round(qq.reduce((s,x)=>s+x.bestMean*x.trials-x.expPayoff,0)/qq.length):null;
+        return `<tr><td><strong>${r===0?'No round':'Round '+r}</strong></td><td>${i.objective==='profit'?'maximize payoff':'identify the best'}</td><td class="num">${i.gamma===null?'–':'±'+fmtG(i.gamma)}</td><td class="num">${i.T??'–'}</td><td class="num">${i.spec?payoffStr(i.spec):'–'}</td><td class="num">${n}</td><td class="num">${n?`<strong>${pct(ok/n)}</strong> <span class="subtle">(${ok}/${n}${ci?', '+pct(ci[0])+'–'+pct(ci[1]):''})</span>`:'–'}</td><td class="num">${n?fmtTauOrDash(median(i.rows.map(x=>x.tauHat).filter(v=>v!==null))):'–'}</td><td class="num">${n?pct(i.rows.filter(x=>x.tauB===0).length/n):'–'}</td><td class="num">${meanPay===null?'–':`<strong>${meanPay}</strong>${meanShort===null?'':` <span class="subtle">(−${meanShort})</span>`}`}</td><td class="num">${sim?`${pct(simGreedy)} / ${pct(simBest)}`:'–'}</td></tr>`;}).join('');
+      $('byRoundTable').innerHTML=`<thead><tr><th>Round</th><th>Objective</th><th>Noise ±γ</th><th>Tests</th><th>True payoffs</th><th>Students</th><th>Found the best</th><th>Median τ̂</th><th>Pure greedy</th><th>Mean payoff (shortfall)</th><th>Sim. greedy / best τ</th></tr></thead><tbody>${trs}</tbody>`;
       rounds.forEach(r=>{const i=roundInfo(r);if(i.gamma!==null&&i.T)simFor(i.gamma,i.T,i.spec||PAYOFF_DEFAULT);});
     }
   }
@@ -505,6 +539,7 @@
     {k:'gamma',h:'±γ',num:true,f:r=>fmtG(r.gamma)},
     {k:'finalPick',h:'Pick · best',f:r=>`${esc(r.finalPick)} · ${esc(r.trueBest)}`},
     {k:'loss',h:'Loss',num:true,f:r=>r.loss===null?'–':r.loss},
+    {k:'paidPayoff',h:'Payoff',num:true,f:r=>r.paidPayoff===null?'–':Math.round(r.paidPayoff)},
     {k:'sequence',h:'Sequence',f:r=>`<span class="seq">${esc(r.sequence)}</span>`},
     {k:'sessionKey',h:'Session',f:r=>`<span class="subtle">${esc(r.sessionKey)}${r.attempt>1?' · try '+r.attempt:''}</span>`}
   ];
@@ -525,7 +560,7 @@
   }
 
   // ---- Round control (Firestore settings document) ----
-  function ctlDraft(){return {sessionKey:$('ctlSeed').value.trim()||'SNU-INNOVATION-2026',round:Math.round(clampNum($('ctlRound').value,1,99,1)),gamma:Math.round(clampNum($('ctlGamma').value,4,40,12)*10)/10,trials:Math.round(clampNum($('ctlTrials').value,5,60,20)),mode:$('ctlMode').value==='shared'?'shared':'student',maxTries:Math.round(clampNum($('ctlTries').value,0,99,0)),payoffs:ctlPayoff()};}
+  function ctlDraft(){return {sessionKey:$('ctlSeed').value.trim()||'SNU-INNOVATION-2026',round:Math.round(clampNum($('ctlRound').value,1,99,1)),gamma:Math.round(clampNum($('ctlGamma').value,4,40,12)*10)/10,trials:Math.round(clampNum($('ctlTrials').value,5,60,20)),mode:$('ctlMode').value==='shared'?'shared':'student',maxTries:Math.round(clampNum($('ctlTries').value,0,99,0)),objective:$('ctlObjective').value==='profit'?'profit':'identify',payoffs:ctlPayoff()};}
   function writeSettings(patch){
     if(!db){toast('Round control needs Firebase (config.js)');return Promise.resolve();}
     patch.updatedAt=firebase.firestore.FieldValue.serverTimestamp();
@@ -533,7 +568,7 @@
   }
   function openRound(){
     const d=ctlDraft();
-    writeSettings({...d,open:true,rounds:{[d.round]:{gamma:d.gamma,trials:d.trials,mode:d.mode,payoffs:d.payoffs,maxTries:d.maxTries}}}).then(ok=>{if(ok)toast(`Round ${d.round} opened · ±γ ${fmtG(d.gamma)} · ${d.trials} tests · ${d.maxTries?d.maxTries+' tries':'unlimited tries'}`);});
+    writeSettings({...d,open:true,rounds:{[d.round]:{gamma:d.gamma,trials:d.trials,mode:d.mode,payoffs:d.payoffs,maxTries:d.maxTries,objective:d.objective}}}).then(ok=>{if(ok)toast(`Round ${d.round} opened · ${d.objective==='profit'?'maximize payoff':'identify the best'} · ±γ ${fmtG(d.gamma)} · ${d.trials} tests · ${d.maxTries?d.maxTries+' tries':'unlimited tries'}`);});
   }
   function closeRound(){writeSettings({open:false}).then(ok=>{if(ok)toast('Round closed');});}
   function nextRound(){const d=ctlDraft();const r=Math.min(99,(settings&&settings.round?Number(settings.round):d.round)+1);$('ctlRound').value=r;openRound();}
@@ -541,7 +576,7 @@
   function fillControl(){
     if(!settings)return;
     const active=document.activeElement;const set=(id,v)=>{const el=$(id);if(el!==active&&v!==undefined&&v!==null)el.value=v;};
-    if(!ctlDirty){set('ctlSeed',settings.sessionKey);set('ctlRound',settings.round);set('ctlGamma',settings.gamma);set('ctlGammaRange',settings.gamma);set('ctlTrials',settings.trials);set('ctlMode',settings.mode);set('ctlTries',String(Math.round(Number(settings.maxTries)||0)));const p=normPayoff(settings.payoffs||PAYOFF_DEFAULT);set('ctlTopMin',p.topMin);set('ctlTopMax',p.topMax);set('ctlGapMin',p.gapMin);set('ctlGapMax',p.gapMax);set('ctlSpread',p.spread);}
+    if(!ctlDirty){set('ctlSeed',settings.sessionKey);set('ctlRound',settings.round);set('ctlGamma',settings.gamma);set('ctlGammaRange',settings.gamma);set('ctlTrials',settings.trials);set('ctlMode',settings.mode);set('ctlTries',String(Math.round(Number(settings.maxTries)||0)));set('ctlObjective',settings.objective==='profit'?'profit':'identify');const p=normPayoff(settings.payoffs||PAYOFF_DEFAULT);set('ctlTopMin',p.topMin);set('ctlTopMax',p.topMax);set('ctlGapMin',p.gapMin);set('ctlGapMax',p.gapMax);set('ctlSpread',p.spread);}
   }
   function renderControl(){
     $('payoffPreview').textContent=payoffText(ctlPayoff());
@@ -550,7 +585,7 @@
     if(!settings){st.textContent='No round yet';st.className='roundstate closed';return;}
     const open=settings.open!==false;
     const liveN=liveRows.filter(r=>r.sessionKey===settings.sessionKey&&r.round===Number(settings.round)).length;
-    st.textContent=`Round ${settings.round} · ${open?'OPEN':'CLOSED'} · ±γ ${fmtG(Number(settings.gamma))} · ${settings.trials} tests · payoffs ${payoffStr(normPayoff(settings.payoffs||PAYOFF_DEFAULT))} · ${Number(settings.maxTries)>0?settings.maxTries+' tries':'unlimited tries'} · ${liveN} result${liveN===1?'':'s'}`;
+    st.textContent=`Round ${settings.round} · ${open?'OPEN':'CLOSED'} · ${settings.objective==='profit'?'MAXIMIZE PAYOFF':'IDENTIFY THE BEST'} · ±γ ${fmtG(Number(settings.gamma))} · ${settings.trials} tests · payoffs ${payoffStr(normPayoff(settings.payoffs||PAYOFF_DEFAULT))} · ${Number(settings.maxTries)>0?settings.maxTries+' tries':'unlimited tries'} · ${liveN} result${liveN===1?'':'s'}`;
     st.className='roundstate '+(open?'open':'closed');
     $('openBtn').textContent=ctlDirty?'Apply & open round':'Open round';
     $('closeBtn').disabled=!open;
@@ -567,7 +602,7 @@
     refreshSelectors();renderTabs();
     const rows=visibleRows();
     $('emptyBox').hidden=rows.length>0;
-    renderCharts(rows);renderStats(rows);renderControl();
+    renderCharts(rows);renderProfit(rows);renderStats(rows);renderControl();
     const ok=rows.filter(r=>r.correct),miss=rows.filter(r=>!r.correct);
     $('foundPill').textContent=ok.length;$('missPill').textContent=miss.length;
     renderTable('foundTable','found',ok);renderTable('missTable','miss',miss);
@@ -597,10 +632,11 @@
         const best=arms[Math.floor(Math.random()*5)];let pick=best;if(!correct){do pick=arms[Math.floor(Math.random()*5)];while(pick===best);}
         let seq='';for(let t=0;t<20;t++)seq+=Math.random()<tauB?arms[Math.floor(Math.random()*5)]:(correct?best:pick);
         out.push(normalize({v:1,sessionKey:'DEMO-CLASS',runId:'DEMO'+round+String(i).padStart(2,'0')+Math.random().toString(36).slice(2,6).toUpperCase(),name,mode:'student',trials:20,gamma,attempt:1,round,finalPick:pick,trueBest:best,correct,
-          tauB:+tauB.toFixed(4),tauW:+tauW.toFixed(4),tauHat:+tauHat.toFixed(4),tauLow:+(tauHat/2).toFixed(4),tauHigh:+(tauHat*2.5).toFixed(4),tauAtLow:atLow,tauAtHigh:false,pseudoR2:+(0.1+Math.random()*0.5).toFixed(4),loss:correct?0:2+Math.floor(Math.random()*8),nonGreedy,retested:Math.min(5,1+Math.round(nonGreedy/3)),paidPayoff:1750+Math.floor(Math.random()*150),sequence:seq,initialDraws:'',trueMeans:''},'demo'));
+          tauB:+tauB.toFixed(4),tauW:+tauW.toFixed(4),tauHat:+tauHat.toFixed(4),tauLow:+(tauHat/2).toFixed(4),tauHigh:+(tauHat*2.5).toFixed(4),tauAtLow:atLow,tauAtHigh:false,pseudoR2:+(0.1+Math.random()*0.5).toFixed(4),loss:correct?0:2+Math.floor(Math.random()*8),nonGreedy,retested:Math.min(5,1+Math.round(nonGreedy/3)),paidPayoff:0,expPayoff:0,bestMean:96,objective:round===2?'profit':'identify',sequence:seq,initialDraws:'',trueMeans:''},'demo'));
+        const last=out[out.length-1];if(last){last.expPayoff=1920-(correct?Math.round(Math.random()*50):50+Math.round(Math.random()*120))-Math.round(nonGreedy*2.5);last.paidPayoff=last.expPayoff+Math.round((Math.random()-0.5)*2*gamma*Math.sqrt(20)/1.7);}
       });
     });
-    const n=addLocal(out.filter(Boolean));$('importMsg').textContent=`${n} synthetic students added (session DEMO-CLASS, round 1 at ±12 and round 2 at ±24). Remove them with Clear… before class.`;
+    const n=addLocal(out.filter(Boolean));$('importMsg').textContent=`${n} synthetic students added (session DEMO-CLASS, round 1 at ±12 and round 2 at ±24). Round 2 is a maximize-payoff round. Remove them with Clear… before class.`;
   }
 
   // ---- Student link ----
@@ -608,7 +644,7 @@
   function studentLink(){
     const b=baseUrl();if(!b)return '';const u=new URL(b);
     u.searchParams.set('class','1');u.searchParams.set('seed',$('linkSeed').value.trim()||'SNU-INNOVATION-2026');
-    if(!db){u.searchParams.set('rounds',String(Math.round(clampNum($('linkTrials').value,5,60,20))));const g=clampNum($('linkGamma').value,4,40,12);if(g!==12)u.searchParams.set('gamma',String(g));const r=Math.round(clampNum($('linkRound').value,0,99,0));if(r)u.searchParams.set('round',String(r));u.searchParams.set('mode',$('linkMode').value);const ps=payoffStr(parsePayoff($('linkPayoff').value));if(ps!==payoffStr(PAYOFF_DEFAULT))u.searchParams.set('payoff',ps);}
+    if(!db){u.searchParams.set('rounds',String(Math.round(clampNum($('linkTrials').value,5,60,20))));const g=clampNum($('linkGamma').value,4,40,12);if(g!==12)u.searchParams.set('gamma',String(g));const r=Math.round(clampNum($('linkRound').value,0,99,0));if(r)u.searchParams.set('round',String(r));u.searchParams.set('mode',$('linkMode').value);const ps=payoffStr(parsePayoff($('linkPayoff').value));if(ps!==payoffStr(PAYOFF_DEFAULT))u.searchParams.set('payoff',ps);if($('linkObjective').value==='profit')u.searchParams.set('objective','profit');}
     return u.href;
   }
   function renderLink(){
@@ -620,10 +656,11 @@
 
   // ---- Wire up ----
   $('measureSeg').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{measure=b.dataset.m;$('measureSeg').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));renderAll();}));
+  $('paySeg').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{payMeasure=b.dataset.p;$('paySeg').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));renderAll();}));
   ['binsInput','firstOnly','sessionSel'].forEach(id=>$(id).addEventListener('change',renderAll));
   $('ctlGammaRange').addEventListener('input',()=>{$('ctlGamma').value=$('ctlGammaRange').value;ctlDirty=true;renderControl();});
   $('ctlGamma').addEventListener('input',()=>{$('ctlGammaRange').value=clampNum($('ctlGamma').value,4,40,12);ctlDirty=true;renderControl();});
-  ['ctlSeed','ctlRound','ctlTrials','ctlMode','ctlTries','ctlTopMin','ctlTopMax','ctlGapMin','ctlGapMax','ctlSpread'].forEach(id=>$(id).addEventListener('input',()=>{ctlDirty=true;renderControl();}));
+  ['ctlSeed','ctlRound','ctlTrials','ctlMode','ctlTries','ctlObjective','ctlTopMin','ctlTopMax','ctlGapMin','ctlGapMax','ctlSpread'].forEach(id=>$(id).addEventListener('input',()=>{ctlDirty=true;renderControl();}));
   $('openBtn').addEventListener('click',()=>{ctlDirty=false;openRound();});
   $('closeBtn').addEventListener('click',closeRound);
   $('nextBtn').addEventListener('click',()=>{ctlDirty=false;nextRound();});
@@ -654,7 +691,7 @@
   });
   $('linkBtn').addEventListener('click',()=>{const s=$('sessionSel').value||(settings&&settings.sessionKey)||$('ctlSeed').value;if(s)$('linkSeed').value=s;$('linkModal').hidden=false;renderLink();});
   $('linkClose').addEventListener('click',()=>{$('linkModal').hidden=true;});
-  ['linkSeed','linkTrials','linkGamma','linkRound','linkMode','linkPayoff'].forEach(id=>$(id).addEventListener('input',renderLink));
+  ['linkSeed','linkTrials','linkGamma','linkRound','linkMode','linkPayoff','linkObjective'].forEach(id=>$(id).addEventListener('input',renderLink));
   $('copyLink').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(studentLink());toast('Link copied');}catch(e){toast('Copy failed; select the text manually');}});
   document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.hidden=true;}));
   document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.overlay').forEach(o=>o.hidden=true);});
