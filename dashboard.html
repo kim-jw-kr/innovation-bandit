@@ -110,7 +110,7 @@
 
 <div class="wrap">
   <section class="card control" id="controlBar">
-    <div class="section-row" style="margin-bottom:12px"><div><h2>Round control</h2><div class="subtle" id="controlSub">Students on the class link follow these settings live. Open a round to let them start; close it to stop new games. Tries per student lets a student play the round again; every try is recorded and the charts show all tries unless First try only is ticked. Randomization: everything per student gives each student their own set of true means, letters and noise. Objective changes what students are told to do: identify the best technology, or earn the highest total payoff (the running total is shown and the final pick is still asked). Technologies (5–10): with 8, heavy exploration spreads 20 tests too thin and the success curve becomes an inverted U; with 5, random testing still does well. γ runs from 4 to 40: below 4 the starting trap cannot be produced.</div></div><span class="roundstate" id="roundState"></span></div>
+    <div class="section-row" style="margin-bottom:12px"><div><h2>Round control</h2><div class="subtle" id="controlSub">Students on the class link follow these settings live. Open a round to let them start; close it to stop new games. Tries per student lets a student play the round again; every try is recorded and the charts show all tries unless First try only is ticked. Randomization: everything per student gives each student their own set of true means, letters and noise. Starting observations: 0 – 0 gives genuine samples; a band such as 10 – 25 draws them uniformly that far below the best, which removes the lucky-first-draw anchor and makes greedy play fail more often. Objective changes what students are told to do: identify the best technology, or earn the highest total payoff (the running total is shown and the final pick is still asked). Technologies (5–10): with 8, heavy exploration spreads 20 tests too thin and the success curve becomes an inverted U; with 5, random testing still does well. γ runs from 4 to 40: below 4 the starting trap cannot be produced.</div></div><span class="roundstate" id="roundState"></span></div>
     <div class="fields">
       <div class="field"><label for="ctlSeed">Session key</label><input type="text" id="ctlSeed" maxlength="80" style="width:200px" value="SNU-INNOVATION-2026"></div>
       <div class="field"><label for="ctlRound">Round</label><input type="number" id="ctlRound" min="1" max="99" step="1" value="1" style="width:80px"></div>
@@ -125,6 +125,7 @@
       <div class="field"><label>True payoffs · best mean, min–max</label><div class="gamma"><input type="number" id="ctlTopMin" min="20" max="100" step="1" value="92" style="width:72px"> – <input type="number" id="ctlTopMax" min="20" max="100" step="1" value="100" style="width:72px"></div></div>
       <div class="field"><label>Gap to runner-up, min–max</label><div class="gamma"><input type="number" id="ctlGapMin" min="1" max="30" step="1" value="2" style="width:72px"> – <input type="number" id="ctlGapMax" min="1" max="30" step="1" value="6" style="width:72px"></div></div>
       <div class="field"><label for="ctlSpread">Others within … below runner-up</label><input type="number" id="ctlSpread" min="3" max="40" step="1" value="12" style="width:80px"></div>
+      <div class="field"><label title="The free starting observations are drawn uniformly this many points below the best technology's mean, independently of each technology's own mean. 0 – 0 = genuine samples (true mean plus noise). The best technology never leads at the start either way.">Starting observations: ceiling – bottom below the best (0 = genuine)</label><div class="gamma"><input type="number" id="ctlPriorMin" min="0" max="60" step="1" value="0" style="width:72px"> – <input type="number" id="ctlPriorMax" min="0" max="60" step="1" value="0" style="width:72px"></div></div>
       <div class="field"><label>Resulting hidden means</label><div class="subtle" id="payoffPreview" style="padding-top:6px"></div></div>
     </div>
     <div class="actions">
@@ -256,11 +257,11 @@
   const clampNum=(x,lo,hi,d)=>{const n=Number(x);return Number.isFinite(n)?Math.min(hi,Math.max(lo,n)):d;};
   // True-payoff spec (same rules as index.html): best mean in [topMin,topMax], runner-up gapMin-gapMax below, three others within `spread` below the runner-up.
   const PAYOFF_DEFAULT={topMin:92,topMax:100,gapMin:2,gapMax:6,spread:12};
-  function normPayoff(o){o=o||{};const r=(x,lo,hi,d)=>Math.round(clampNum(x,lo,hi,d));const topMax=r(o.topMax,20,100,100),topMin=r(o.topMin,20,topMax,Math.min(92,topMax));const gapMax=r(o.gapMax,1,30,6),gapMin=r(o.gapMin,1,gapMax,Math.min(2,gapMax));const safeMax=r(o.safeMax,0,30,0),safeMin=safeMax?r(o.safeMin,1,safeMax,Math.min(3,safeMax)):0;return {topMin,topMax,gapMin,gapMax,spread:r(o.spread,3,40,12),safeMin,safeMax};}
-  const payoffStr=p=>`${p.topMin}-${p.topMax}/${p.gapMin}-${p.gapMax}/${p.spread}${p.safeMax?`/safe${p.safeMin}-${p.safeMax}`:''}`;
-  function parsePayoff(str){const m=String(str||'').trim().match(/^(\d+)\s*-\s*(\d+)\s*\/\s*(\d+)\s*-\s*(\d+)\s*\/\s*(\d+)(?:\s*\/\s*safe\s*(\d+)\s*-\s*(\d+))?$/i);return m?normPayoff({topMin:m[1],topMax:m[2],gapMin:m[3],gapMax:m[4],spread:m[5],safeMin:m[6]||0,safeMax:m[7]||0}):normPayoff(PAYOFF_DEFAULT);}
-  const payoffText=p=>`best ${p.topMin}–${p.topMax} · runner-up ${p.gapMin}–${p.gapMax} below · other${p.safeMax?' two':' three'} within ${p.spread} below the runner-up${p.safeMax?` · one SAFE technology with a known, noise-free payoff ${p.safeMin}–${p.safeMax} below the best`:''} (band ≈ ${p.topMax-p.topMin+p.gapMax+p.spread} points)`;
-  function ctlPayoff(){return normPayoff({topMin:$('ctlTopMin').value,topMax:$('ctlTopMax').value,gapMin:$('ctlGapMin').value,gapMax:$('ctlGapMax').value,spread:$('ctlSpread').value,safeMin:0,safeMax:0});}
+  function normPayoff(o){o=o||{};const r=(x,lo,hi,d)=>Math.round(clampNum(x,lo,hi,d));const topMax=r(o.topMax,20,100,100),topMin=r(o.topMin,20,topMax,Math.min(92,topMax));const gapMax=r(o.gapMax,1,30,6),gapMin=r(o.gapMin,1,gapMax,Math.min(2,gapMax));const safeMax=r(o.safeMax,0,30,0),safeMin=safeMax?r(o.safeMin,1,safeMax,Math.min(3,safeMax)):0;const priorMax=r(o.priorMax,0,60,0),priorMin=priorMax?r(o.priorMin,0,priorMax,Math.min(10,priorMax)):0;return {topMin,topMax,gapMin,gapMax,spread:r(o.spread,3,40,12),safeMin,safeMax,priorMin,priorMax};}
+  const payoffStr=p=>`${p.topMin}-${p.topMax}/${p.gapMin}-${p.gapMax}/${p.spread}${p.safeMax?`/safe${p.safeMin}-${p.safeMax}`:''}${p.priorMax?`/p${p.priorMin}-${p.priorMax}`:''}`;
+  function parsePayoff(str){const m=String(str||'').trim().match(/^(\d+)\s*-\s*(\d+)\s*\/\s*(\d+)\s*-\s*(\d+)\s*\/\s*(\d+)(?:\s*\/\s*safe\s*(\d+)\s*-\s*(\d+))?(?:\s*\/\s*p\s*(\d+)\s*-\s*(\d+))?$/i);return m?normPayoff({topMin:m[1],topMax:m[2],gapMin:m[3],gapMax:m[4],spread:m[5],safeMin:m[6]||0,safeMax:m[7]||0,priorMin:m[8]||0,priorMax:m[9]||0}):normPayoff(PAYOFF_DEFAULT);}
+  const payoffText=p=>`best ${p.topMin}–${p.topMax} · runner-up ${p.gapMin}–${p.gapMax} below · other${p.safeMax?' two':' three'} within ${p.spread} below the runner-up${p.safeMax?` · one SAFE technology with a known, noise-free payoff ${p.safeMin}–${p.safeMax} below the best`:''}${p.priorMax?` · starting observations drawn ${p.priorMin}–${p.priorMax} below the best`:' · starting observations are genuine samples'} (band ≈ ${p.topMax-p.topMin+p.gapMax+p.spread} points)`;
+  function ctlPayoff(){return normPayoff({topMin:$('ctlTopMin').value,topMax:$('ctlTopMax').value,gapMin:$('ctlGapMin').value,gapMax:$('ctlGapMax').value,spread:$('ctlSpread').value,safeMin:0,safeMax:0,priorMin:$('ctlPriorMin').value,priorMax:$('ctlPriorMax').value});}
 
   // ---- Normalisation ----
   function normalize(o,source){
@@ -393,7 +394,7 @@
         else mu=[top,runner,...pool.slice(0,K-2)]; // arm 0 is the true best; the agent never sees the order
         const nz=i=>i===safeIdx?0:gamma*(2*Math.random()-1); // the safe option is noise-free
         let tot=null;
-        for(let k=0;k<500;k++){tot=mu.map((m,i)=>Math.round(m+nz(i)));let lead=false;for(let a=1;a<K;a++)if(tot[a]>tot[0])lead=true;if(lead)break;}
+        for(let k=0;k<500;k++){tot=mu.map((m,i)=>i===safeIdx?m:spec.priorMax?top-(spec.priorMin+Math.floor(Math.random()*(spec.priorMax-spec.priorMin+1))):Math.round(m+nz(i)));let lead=false;for(let a=1;a<K;a++)if(tot[a]>tot[0])lead=true;if(lead)break;}
         const cnt=Array(K).fill(1);let nong=0,wsum=0;
         for(let t=0;t<T;t++){
           const m=tot.map((v,i)=>v/cnt[i]);const mx=Math.max(...m);
@@ -596,7 +597,7 @@
   function fillControl(){
     if(!settings)return;
     const active=document.activeElement;const set=(id,v)=>{const el=$(id);if(el!==active&&v!==undefined&&v!==null)el.value=v;};
-    if(!ctlDirty){set('ctlSeed',settings.sessionKey);set('ctlRound',settings.round);set('ctlGamma',settings.gamma);set('ctlGammaRange',settings.gamma);set('ctlTrials',settings.trials);set('ctlArms',Math.round(clampNum(settings.arms,5,10,5)));set('ctlMode',settings.mode);set('ctlTries',String(Math.round(Number(settings.maxTries)||0)));set('ctlObjective',settings.objective==='profit'?'profit':'identify');const p=normPayoff(settings.payoffs||PAYOFF_DEFAULT);set('ctlTopMin',p.topMin);set('ctlTopMax',p.topMax);set('ctlGapMin',p.gapMin);set('ctlGapMax',p.gapMax);set('ctlSpread',p.spread);}
+    if(!ctlDirty){set('ctlSeed',settings.sessionKey);set('ctlRound',settings.round);set('ctlGamma',settings.gamma);set('ctlGammaRange',settings.gamma);set('ctlTrials',settings.trials);set('ctlArms',Math.round(clampNum(settings.arms,5,10,5)));set('ctlMode',settings.mode);set('ctlTries',String(Math.round(Number(settings.maxTries)||0)));set('ctlObjective',settings.objective==='profit'?'profit':'identify');const p=normPayoff(settings.payoffs||PAYOFF_DEFAULT);set('ctlTopMin',p.topMin);set('ctlTopMax',p.topMax);set('ctlGapMin',p.gapMin);set('ctlGapMax',p.gapMax);set('ctlSpread',p.spread);set('ctlPriorMin',p.priorMin);set('ctlPriorMax',p.priorMax);}
   }
   function renderControl(){
     $('payoffPreview').textContent=payoffText(ctlPayoff());
@@ -680,7 +681,7 @@
   ['binsInput','firstOnly','rateLine','sessionSel'].forEach(id=>$(id).addEventListener('change',renderAll));
   $('ctlGammaRange').addEventListener('input',()=>{$('ctlGamma').value=$('ctlGammaRange').value;ctlDirty=true;renderControl();});
   $('ctlGamma').addEventListener('input',()=>{$('ctlGammaRange').value=clampNum($('ctlGamma').value,4,40,12);ctlDirty=true;renderControl();});
-  ['ctlSeed','ctlRound','ctlTrials','ctlArms','ctlMode','ctlTries','ctlObjective','ctlTopMin','ctlTopMax','ctlGapMin','ctlGapMax','ctlSpread'].forEach(id=>$(id).addEventListener('input',()=>{ctlDirty=true;renderControl();}));
+  ['ctlSeed','ctlRound','ctlTrials','ctlArms','ctlMode','ctlTries','ctlObjective','ctlTopMin','ctlTopMax','ctlGapMin','ctlGapMax','ctlSpread','ctlPriorMin','ctlPriorMax'].forEach(id=>$(id).addEventListener('input',()=>{ctlDirty=true;renderControl();}));
   $('openBtn').addEventListener('click',()=>{ctlDirty=false;openRound();});
   $('closeBtn').addEventListener('click',closeRound);
   $('nextBtn').addEventListener('click',()=>{ctlDirty=false;nextRound();});
