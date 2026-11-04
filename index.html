@@ -322,20 +322,22 @@
   const ARMS=['A','B','C','D','E'];
   // Hidden true means are drawn per session and round from a PAYOFF SPEC the instructor can change per round:
   // best mean in [topMin, topMax], runner-up gapMin-gapMax points below it, three others within `spread` points below the runner-up.
-  const PAYOFF_DEFAULT={topMin:92,topMax:100,gapMin:2,gapMax:6,spread:12};
+  // Optional SAFE OPTION: one of the five technologies has a known, fixed payoff (no noise, disclosed to students), safeMin-safeMax points below the best. safeMax = 0 means none.
+  const PAYOFF_DEFAULT={topMin:92,topMax:100,gapMin:2,gapMax:6,spread:12,safeMin:0,safeMax:0};
   const clampInt=(x,lo,hi,d)=>{const n=Math.round(Number(x));return Number.isFinite(n)?Math.min(hi,Math.max(lo,n)):d;};
   function normPayoff(o){
     o=o||{};const topMax=clampInt(o.topMax,20,100,PAYOFF_DEFAULT.topMax),topMin=clampInt(o.topMin,20,topMax,Math.min(PAYOFF_DEFAULT.topMin,topMax));
     const gapMax=clampInt(o.gapMax,1,30,PAYOFF_DEFAULT.gapMax),gapMin=clampInt(o.gapMin,1,gapMax,Math.min(PAYOFF_DEFAULT.gapMin,gapMax));
     const spread=clampInt(o.spread,3,40,PAYOFF_DEFAULT.spread);
-    return {topMin,topMax,gapMin,gapMax,spread};
+    const safeMax=clampInt(o.safeMax,0,30,0),safeMin=safeMax?clampInt(o.safeMin,1,safeMax,Math.min(3,safeMax)):0;
+    return {topMin,topMax,gapMin,gapMax,spread,safeMin,safeMax};
   }
-  const payoffSpecString=(p)=>`${p.topMin}-${p.topMax}/${p.gapMin}-${p.gapMax}/${p.spread}`; // e.g. 92-100/2-6/12
+  const payoffSpecString=(p)=>`${p.topMin}-${p.topMax}/${p.gapMin}-${p.gapMax}/${p.spread}${p.safeMax?`/safe${p.safeMin}-${p.safeMax}`:''}`; // e.g. 92-100/2-6/12 or 92-100/2-6/12/safe3-6
   function parsePayoffSpec(str){
-    const m=String(str||'').trim().match(/^(\d+)\s*-\s*(\d+)\s*\/\s*(\d+)\s*-\s*(\d+)\s*\/\s*(\d+)$/);
-    return m?normPayoff({topMin:m[1],topMax:m[2],gapMin:m[3],gapMax:m[4],spread:m[5]}):normPayoff(PAYOFF_DEFAULT);
+    const m=String(str||'').trim().match(/^(\d+)\s*-\s*(\d+)\s*\/\s*(\d+)\s*-\s*(\d+)\s*\/\s*(\d+)(?:\s*\/\s*safe\s*(\d+)\s*-\s*(\d+))?$/i);
+    return m?normPayoff({topMin:m[1],topMax:m[2],gapMin:m[3],gapMax:m[4],spread:m[5],safeMin:m[6]||0,safeMax:m[7]||0}):normPayoff(PAYOFF_DEFAULT);
   }
-  const payoffText=(p)=>`best ${p.topMin}–${p.topMax}, runner-up ${p.gapMin}–${p.gapMax} points below, the other three within ${p.spread} points below the runner-up`;
+  const payoffText=(p)=>`best ${p.topMin}–${p.topMax}, runner-up ${p.gapMin}–${p.gapMax} points below, the other${p.safeMax?' two':' three'} within ${p.spread} points below the runner-up${p.safeMax?`; one safe technology with a known, fixed payoff ${p.safeMin}–${p.safeMax} points below the best`:''}`;
   const EXPLORATION_GAP_SCALE_SD=1; // A gap of γ (one noise half-width: the most a single observation can be off) receives maximum weight. Was 2γ before 2026-11-03.
   const FREE_INITIAL_SAMPLES=1; // One shared, noisy observation per technology before students choose.
   const GAMMA_DEFAULT=12, GAMMA_MIN=4, GAMMA_MAX=40; // Uniform noise on [-γ, γ]. γ is set per round by the instructor (dashboard, ?gamma=, or Instructor setup); default 12. Below 4 the starting trap becomes impossible (a 2-6 point gap cannot be overturned), so 4 is the floor.
@@ -386,23 +388,33 @@
       const j=Math.floor(seededRandom(key+'|lower-value|'+i)*(i+1));
       [lowerPool[i],lowerPool[j]]=[lowerPool[j],lowerPool[i]];
     }
-    const values=[top,runner,...lowerPool.slice(0,3)];
+    let values,safeIdx=-1;
+    if(spec.safeMax){
+      // Safe option: a known, fixed payoff safeMin-safeMax below the best (never equal to the runner-up), replacing one of the three lower means.
+      let safeVal=top-(spec.safeMin+Math.floor(seededRandom(key+'|safe-gap')*(spec.safeMax-spec.safeMin+1)));if(safeVal===runner)safeVal=runner-1;
+      values=[top,runner,safeVal,...lowerPool.filter(v=>v!==safeVal).slice(0,2)];safeIdx=2;
+    }else values=[top,runner,...lowerPool.slice(0,3)];
     // Independently shuffle the five values across A-E.
     for(let i=values.length-1;i>0;i--){
       const j=Math.floor(seededRandom(permKey+'|permute|'+i)*(i+1));
-      [values[i],values[j]]=[values[j],values[i]];
+      [values[i],values[j]]=[values[j],values[i]];if(safeIdx===i)safeIdx=j;else if(safeIdx===j)safeIdx=i;
     }
-    return Object.fromEntries(ARMS.map((a,i)=>[a,values[i]]));
+    const means=Object.fromEntries(ARMS.map((a,i)=>[a,values[i]]));
+    Object.defineProperty(means,'safeArm',{value:safeIdx>=0?ARMS[safeIdx]:null,enumerable:false}); // letter of the safe option, hidden from Object.values/keys
+    return means;
   }
   const roundSeed=(seed=state.seed,round=state.round)=>round>0?seed+'#R'+round:seed; // Each round draws a fresh set of hidden means from the same session key.
   const permKeyFor=(key=roundSeed(),mode=state.mode,runId=state.runId)=>mode==='shared'?key:key+'|run|'+runId;
   const currentMeans=()=>makeMeans(roundSeed(),permKeyFor());
   state.means=currentMeans();
   const trueBest=(means=state.means)=>ARMS.reduce((x,y)=>means[x]>means[y]?x:y);
+  const safeArm=()=>(state.means&&state.means.safeArm)||null; // letter of the safe (known, noise-free) option, or null
+  const isSafe=a=>!!a&&a===safeArm();
+  const safeNote=()=>safeArm()?` One of the five technologies has a <strong>known, fixed payoff of ${state.means[safeArm()]} points per test</strong>: it never varies, and it is marked on its card. The other four are uncertain.`:'';
   const sig=()=>state.gamma;
   // All noise is keyed on session key + run ID: every student run (and every replay) gets its own independent draws.
   const noiseKey=()=>roundSeed()+'|run|'+state.runId;
-  function reward(arm,pullIndex){return Math.round(state.means[arm]+sig()*noiseShock(noiseKey()+'|outcome|'+arm+'|'+pullIndex));}
+  function reward(arm,pullIndex){if(isSafe(arm))return state.means[arm];return Math.round(state.means[arm]+sig()*noiseShock(noiseKey()+'|outcome|'+arm+'|'+pullIndex));}
   // Free starting observations are drawn per run and then CONDITIONED so that the true best technology never shows the
   // highest starting value: attempt k is accepted as soon as some other technology's free draw strictly exceeds the best
   // one's. Every student therefore starts with a tempting wrong leader. Instructors should not disclose this rule.
@@ -413,7 +425,7 @@
     if(initialCache.key===key)return initialCache.draws;
     const best=trueBest();let draws=null;
     for(let k=0;k<INITIAL_MAX_ATTEMPTS;k++){
-      draws=Object.fromEntries(ARMS.map(a=>[a,Math.round(state.means[a]+sig()*noiseShock(noiseKey()+'|initial|'+k+'|'+a))]));
+      draws=Object.fromEntries(ARMS.map(a=>[a,isSafe(a)?state.means[a]:Math.round(state.means[a]+sig()*noiseShock(noiseKey()+'|initial|'+k+'|'+a))]));
       if(ARMS.some(a=>a!==best&&draws[a]>draws[best]))break;
     }
     initialCache={key,draws};return draws;
@@ -481,14 +493,14 @@
   let labDb=null;
   function labFirestore(){if(labDb)return labDb;if(!firebaseReady())return null;try{if(!firebase.apps.length)firebase.initializeApp(LAB.firebaseConfig);labDb=firebase.firestore();}catch(err){labDb=null;}return labDb;}
   // Field order of the result code. dashboard.html parses codes with the same list; append new fields at the end only.
-  const CODE_FIELDS=['v','sessionKey','runId','name','mode','trials','gamma','attempt','finalPick','trueBest','correct','tauB','tauW','tauHat','tauLow','tauHigh','tauAtLow','tauAtHigh','pseudoR2','loss','nonGreedy','retested','paidPayoff','sequence','initialDraws','trueMeans','round','payoffSpec','objective','bestMean','expPayoff'];
+  const CODE_FIELDS=['v','sessionKey','runId','name','mode','trials','gamma','attempt','finalPick','trueBest','correct','tauB','tauW','tauHat','tauLow','tauHigh','tauAtLow','tauAtHigh','pseudoR2','loss','nonGreedy','retested','paidPayoff','sequence','initialDraws','trueMeans','round','payoffSpec','objective','bestMean','expPayoff','safeArm','safeValue'];
   function resultRecord(){
     const f=softmaxFit();
     return {v:1,sessionKey:state.seed,runId:state.runId,name:nameLabel().slice(0,40),mode:state.mode,trials:state.trials,gamma:sig(),attempt:state.attempt,
       round:state.round,payoffSpec:payoffSpecString(state.payoff),finalPick:state.finalGuess,trueBest:trueBest(),correct:state.finalGuess===trueBest(),tauB:Number(tau().toFixed(4)),tauW:Number(weightedTau().toFixed(4)),
       tauHat:f?Number(f.tau.toFixed(4)):null,tauLow:f?Number(f.ciLow.toFixed(4)):null,tauHigh:f?Number(f.ciHigh.toFixed(4)):null,tauAtLow:!!(f&&f.atLow),tauAtHigh:!!(f&&f.atHigh),pseudoR2:f?Number(f.pseudoR2.toFixed(4)):null,
       loss:gap(),nonGreedy:exploratoryCount(),retested:coverage(),paidPayoff:totalPayoff(),sequence:state.actions.map(r=>r.arm).join(''),
-      initialDraws:ARMS.map(a=>initialReward(a)).join(';'),trueMeans:ARMS.map(a=>state.means[a]).join(';'),objective:state.objective,bestMean:state.means[trueBest()],expPayoff:expectedPayoff()};
+      initialDraws:ARMS.map(a=>initialReward(a)).join(';'),trueMeans:ARMS.map(a=>state.means[a]).join(';'),objective:state.objective,bestMean:state.means[trueBest()],expPayoff:expectedPayoff(),safeArm:safeArm()||'',safeValue:safeArm()?state.means[safeArm()]:null};
   }
   function resultCode(){const r=resultRecord();return 'IDLAB1|'+CODE_FIELDS.map(k=>{const v=r[k];return v===null||v===undefined?'':typeof v==='boolean'?(v?1:0):String(v).replace(/[|\r\n]/g,' ');}).join('|');}
   function submitResult(){
@@ -553,7 +565,7 @@
         <div class="visual-grid">${ARMS.map((a,i)=>`<div class="visual-arm"><div class="visual-letter" style="color:${['#7fbee7','#c6b3e7','#80d2b2','#f4bb7c','#f2a7a7'][i]}">${a}</div><div class="visual-question">μ = ?</div></div>`).join('')}</div>
         <div class="visual-footer"><span>Observe outcomes. Build evidence.</span><strong>${isProfit()?'Every test pays.':'Make one final call.'}</strong></div>
       </div></section>
-      <section class="card setup"><div class="section-head"><div><div class="eyebrow">Your mission</div><h2>${isProfit()?'Earn the highest total payoff.':'Find the best technology.'}</h2><div class="subtle">You start with one observed outcome for each technology. Each test you run returns one more outcome${isProfit()?', and that outcome is added to your total':''}. Outcomes vary from test to test, so a single result does not reveal a technology's expected payoff. ${isProfit()?'Your score is the <strong>sum of all '+state.trials+' observed payoffs</strong>. At the end you will also be asked which technology you believe is best.':'At the end, recommend <strong>one</strong> technology.'}</div></div></div>
+      <section class="card setup"><div class="section-head"><div><div class="eyebrow">Your mission</div><h2>${isProfit()?'Earn the highest total payoff.':'Find the best technology.'}</h2><div class="subtle">You start with one observed outcome for each technology. Each test you run returns one more outcome${isProfit()?', and that outcome is added to your total':''}. Outcomes vary from test to test, so a single result does not reveal a technology's expected payoff. ${isProfit()?'Your score is the <strong>sum of all '+state.trials+' observed payoffs</strong>. At the end you will also be asked which technology you believe is best.':'At the end, recommend <strong>one</strong> technology.'}${safeNote()}</div></div></div>
         ${liveStatus()}
         <div class="setup-bottom"><div><label class="input-label" for="student-name">YOUR NAME OR NICKNAME (OPTIONAL)</label><input id="student-name" class="name-input" maxlength="48" autocomplete="off" placeholder="e.g., Team 3" value="${esc(state.name)}"></div><button type="button" class="primary-btn" data-action="start" ${startBlocked()?'disabled':''}>Start ${state.trials} tests <span aria-hidden="true">&rarr;</span></button></div>
         ${state.classroom?'<p class="tiny" style="margin:13px 0 0">Your outcomes are specific to your own run, so no two students see the same numbers. The number of tests is set by your instructor.</p>':'<p class="tiny" style="margin:13px 0 0">For instructors: change the number of trials, the session key and the randomization scope in Instructor setup.</p>'}
@@ -564,16 +576,16 @@
       </section></main>`;
   }
   function initialEvidence(){
-    return `<section class="initial-evidence" aria-label="Starting observations"><div class="initial-head"><strong>Starting observations</strong><span>One observed outcome per technology · These do not use your test budget</span></div><div class="initial-grid">${ARMS.map(a=>`<div class="initial-item"><span>TECH ${a}</span><strong>${signed(initialReward(a))}</strong></div>`).join('')}</div></section>`;
+    return `<section class="initial-evidence" aria-label="Starting observations"><div class="initial-head"><strong>Starting observations</strong><span>One observed outcome per technology · These do not use your test budget</span></div><div class="initial-grid">${ARMS.map(a=>`<div class="initial-item"><span>TECH ${a}${isSafe(a)?' · KNOWN':''}</span><strong>${signed(initialReward(a))}</strong></div>`).join('')}</div></section>`;
   }
   function armCard(a,feedback){
     const x=aggregate(state.actions,a);const chosen=feedback&&feedback.arm===a;const canPlay=state.phase==='playing';const pending=canPlay&&state.pendingArm===a;
-    const latestLabel=x.paid===0?'starting observation':'your test '+x.paid+(chosen?' · just now':'');
+    const latestLabel=x.paid===0?'starting observation':'your test '+x.paid+(chosen?' · just now':'');const safe=isSafe(a);
     return `<article class="arm-card arm-${a} ${chosen?'chosen':''} ${canPlay?'can-play':''} ${pending?'pending':''}">
-      <div class="arm-top"><span class="arm-letter">${a}</span><span class="arm-count">${x.n} ${x.n===1?'sample':'samples'}</span></div>
-      <div><div class="arm-title">Technology ${a}</div><div class="arm-sub">Running average (all ${x.n} ${x.n===1?'observation':'observations'})</div></div>
+      <div class="arm-top"><span class="arm-letter">${a}</span><span class="arm-count">${safe?'KNOWN PAYOFF':`${x.n} ${x.n===1?'sample':'samples'}`}</span></div>
+      <div><div class="arm-title">Technology ${a}${safe?' · safe':''}</div><div class="arm-sub">${safe?'Fixed payoff: every test returns exactly this':`Running average (all ${x.n} ${x.n===1?'observation':'observations'})`}</div></div>
       <div><div class="arm-observed">${meanFmt(x.avg)}<small>pts</small></div><div class="arm-bar"><div style="width:${x.avg===null?0:100*Math.max(0,Math.min(1,x.avg/140))}%"></div></div></div>
-      <div class="arm-latest"><span>Latest payoff<br><em>${latestLabel}</em></span><strong>${signed(x.last)}</strong></div>
+      <div class="arm-latest"><span>${safe?'Guaranteed payoff<br><em>no uncertainty</em>':`Latest payoff<br><em>${latestLabel}</em>`}</span><strong>${signed(x.last)}</strong></div>
       ${pending?`<div class="arm-confirm"><button type="button" class="arm-btn" data-action="confirm-invest" data-arm="${a}">Confirm: test ${a} →</button><button type="button" class="arm-cancel" data-action="cancel-invest" aria-label="Cancel selection">Cancel</button></div>`
       :`<button type="button" class="arm-btn" data-action="invest" data-arm="${a}" ${canPlay?'':'disabled'}>${chosen?'Selected this trial':canPlay?(state.pendingArm?'Switch to '+a:'Select '+a+' →'):'Continue below'}</button>`}</article>`;
   }
@@ -587,7 +599,7 @@
     const done=state.actions.length;const last=state.phase==='feedback'?state.actions[done-1]:null;
     const r=last?done:done+1;
     return `<main><div class="game-intro"><div><div class="eyebrow">Test ${r} of ${state.trials}</div><h1>${last?'One more piece of evidence.':'Which technology will you test?'}</h1>
-      <div class="subtle">Every running average includes the starting observation plus your tests.</div></div><div class="status-badges">${state.round?`<span class="small-badge">Round ${state.round}</span>`:''}<span class="small-badge">${isProfit()?'Goal: highest total payoff':'One best technology'}</span><span class="small-badge">Run ${state.runId}</span></div></div>
+      <div class="subtle">Every running average includes the starting observation plus your tests.</div></div><div class="status-badges">${state.round?`<span class="small-badge">Round ${state.round}</span>`:''}<span class="small-badge">${isProfit()?'Goal: highest total payoff':'One best technology'}</span>${safeArm()?`<span class="small-badge">Safe option ${safeArm()}: ${state.means[safeArm()]} pts, guaranteed</span>`:''}<span class="small-badge">Run ${state.runId}</span></div></div>
       <section class="card game-scorebar"><div><div class="small-label">Tests remaining</div><div class="number-big">${state.trials-done}<span style="font-size:11px;color:#93a09b;margin-left:4px">left</span></div></div>
         <div class="progress-col"><div class="progress-between"><span>TEST BUDGET</span><span>${done} / ${state.trials} used</span></div><div class="progress-track" role="progressbar" aria-label="Trials completed" aria-valuenow="${done}" aria-valuemin="0" aria-valuemax="${state.trials}"><div class="progress-fill" style="width:${100*done/state.trials}%"></div></div><div class="progress-between"><span>Start</span><span>${isProfit()?'Final total':'Final recommendation'}</span></div></div>
         ${isProfit()?`<div><div class="small-label">Total payoff so far</div><div class="number-big">${signed(totalPayoff())}<span style="font-size:11px;color:#93a09b;margin-left:4px">pts</span></div></div>`:`<div><div class="small-label">Options retested</div><div class="number-big">${coverage()}<span style="font-size:15px;color:#8c9b99"> / 5</span></div></div>`}
@@ -596,7 +608,7 @@
       <div class="evidence-head"><h2>Choose one technology to test</h2>${state.phase==='playing'&&state.pendingArm?`<span class="evidence-note pending-note">Technology ${state.pendingArm} selected. Confirm on its card to run the test, or pick another.</span>`:'<span class="evidence-note">Select a card, then confirm.</span>'}</div>
       <div class="arms-grid">${ARMS.map(a=>armCard(a,last)).join('')}</div>${last?feedbackPanel(last):''}
       <section class="card evidence-block"><div class="section-row"><div><h3>Your evidence so far</h3><span class="subtle">Each average includes the starting observation and any tests you have run.</span></div><span class="small-badge">Starting observation + your tests</span></div>
-        <div class="evidence-matrix">${ARMS.map(a=>{const x=aggregate(state.actions,a);return `<div class="matrix-cell"><label>TECHNOLOGY ${a}</label><strong>${x.n} ${x.n===1?'observation':'observations'}</strong><span>Mean: ${meanFmt(x.avg)} · added tests: ${x.paid}</span></div>`}).join('')}</div>
+        <div class="evidence-matrix">${ARMS.map(a=>{const x=aggregate(state.actions,a);return `<div class="matrix-cell"><label>TECHNOLOGY ${a}</label><strong>${x.n} ${x.n===1?'observation':'observations'}</strong><span>${isSafe(a)?`Known payoff ${state.means[a]} · tests: ${x.paid}`:`Mean: ${meanFmt(x.avg)} · added tests: ${x.paid}`}</span></div>`}).join('')}</div>
       </section></main>`;
   }
   function finalScreen(){
@@ -605,14 +617,14 @@
       <section class="card panel"><div class="section-row"><div><h2>Your evidence</h2><div class="subtle">Each average includes the starting observation and your tests.</div></div><span class="small-badge">No further tests</span></div>
         <div class="evidence-matrix">${ARMS.map(a=>{const x=aggregate(state.actions,a);return `<div class="matrix-cell"><label>TECHNOLOGY ${a}</label><strong>${x.avg===null?'No estimate':meanFmt(x.avg)+' pts'}</strong><span>${x.n} ${x.n===1?'observation':'observations'}</span></div>`}).join('')}</div>
       </section><div class="evidence-head" style="margin-top:29px"><h2>Make your recommendation</h2><span class="evidence-note">One answer. No changes after submission.</span></div>
-      <div class="final-choice-grid">${ARMS.map(a=>{const x=aggregate(state.actions,a);return `<button type="button" class="final-choice ${state.selectedGuess===a?'selected':''}" data-action="choose-final" data-arm="${a}" aria-pressed="${state.selectedGuess===a}"><span class="letter">${a}${state.selectedGuess===a?' ✓':''}</span><span class="summary">Observed average<br><strong>${meanFmt(x.avg)}</strong> · ${x.n} observations</span></button>`}).join('')}</div>
+      <div class="final-choice-grid">${ARMS.map(a=>{const x=aggregate(state.actions,a);return `<button type="button" class="final-choice ${state.selectedGuess===a?'selected':''}" data-action="choose-final" data-arm="${a}" aria-pressed="${state.selectedGuess===a}"><span class="letter">${a}${state.selectedGuess===a?' ✓':''}</span>${isSafe(a)?`<span class="summary">Known payoff<br><strong>${state.means[a]}</strong> · guaranteed</span>`:`<span class="summary">Observed average<br><strong>${meanFmt(x.avg)}</strong> · ${x.n} observations</span>`}</button>`}).join('')}</div>
       <div class="final-actions"><button type="button" class="primary-btn" data-action="submit-final" ${state.selectedGuess?'':'disabled'}>Submit recommendation <span aria-hidden="true">&rarr;</span></button><span class="subtle">${state.selectedGuess?'Your current choice: Technology '+state.selectedGuess:'Select a technology to enable submission.'}</span></div>
           </main>`;
   }
   function table(){
     const winner=trueBest();
     return `<table class="prob-table"><thead><tr><th>Technology</th><th>True mean</th><th>Free first draw</th><th>Final sample mean</th><th>Paid tests</th></tr></thead><tbody>
-      ${ARMS.map(a=>{const x=aggregate(state.actions,a);return `<tr><td><strong>${a}</strong> ${a===winner?'★ Best':''}${a===state.finalGuess?' · Your pick':''}</td><td class="${a===winner?'winner':''}">${state.means[a].toFixed(1)}</td><td>${signed(x.initial)}</td><td>${meanFmt(x.avg)}</td><td>${x.paid}</td></tr>`}).join('')}</tbody></table>`;
+      ${ARMS.map(a=>{const x=aggregate(state.actions,a);return `<tr><td><strong>${a}</strong> ${a===winner?'★ Best':''}${isSafe(a)?' · Safe (known)':''}${a===state.finalGuess?' · Your pick':''}</td><td class="${a===winner?'winner':''}">${state.means[a].toFixed(1)}</td><td>${signed(x.initial)}</td><td>${meanFmt(x.avg)}</td><td>${x.paid}</td></tr>`}).join('')}</tbody></table>`;
   }
     function comparison(){
     const scale=Math.max(95,...ARMS.map(a=>Math.max(state.means[a],aggregate(state.actions,a).avg||0)));
@@ -648,7 +660,7 @@
           <div class="note-technical" style="margin-top:19px"><strong>How to interpret:</strong> τb counts the frequency of choices below the current empirical leader. τw measures how far below that leader the chosen alternative appears. Both range from 0 to 1 and include the very first student decision. τ̂ is the exploration (temperature) parameter of the softmax choice rule used in bandit models of organizational learning: it is the value of τ that makes your observed sequence of ${state.trials} choices most likely, given the sample means you saw at each step.<br><br><strong>Important:</strong> τb and τw are descriptive; τ̂ is model-based and assumes a stationary softmax rule, which real students rarely follow exactly (many explore early and exploit late). None of the three measures decision quality: repeatedly choosing an obviously weak option raises all of them without improving identification. Compare students only under the same noise setting and the same session key.</div>
         </section>
         <section class="card panel"><h2>The true payoff environment</h2><div class="subtle">Five distinct true means were randomly generated (${payoffText(state.payoff)}) and assigned to technologies before play. They never changed.</div>
-          ${table()}<div class="result-explainer"><strong>Observed payoff = true mean + uniform noise on [−γ, γ]</strong><br>γ = ${sig()} points · True means: ${ARMS.map(a=>state.means[a]).slice().sort((a,b)=>a-b).join(', ')} (value set fixed by session key; ${RANDOMIZATION[state.mode].short.toLowerCase()}) · Five free initial observations + ${state.trials} discretionary tests. Every final sample mean includes its free observation.<br>Session key: ${esc(state.seed)} · Run ID: <strong>${state.runId}</strong> (reproduces every draw of this run)</div>
+          ${table()}<div class="result-explainer"><strong>Observed payoff = true mean + uniform noise on [−γ, γ]</strong>${safeArm()?` (Technology ${safeArm()} was the safe option: no noise, ${state.means[safeArm()]} points every time)`:''}<br>γ = ${sig()} points · True means: ${ARMS.map(a=>state.means[a]).slice().sort((a,b)=>a-b).join(', ')} (value set fixed by session key; ${RANDOMIZATION[state.mode].short.toLowerCase()}) · Five free initial observations + ${state.trials} discretionary tests. Every final sample mean includes its free observation.<br>Session key: ${esc(state.seed)} · Run ID: <strong>${state.runId}</strong> (reproduces every draw of this run)</div>
         </section>
       </div>
       <section class="card panel" style="margin-top:17px"><div class="section-row"><div><h2>Beliefs versus reality</h2><p class="subtle" style="margin:0">A noisy sample mean can be above or below a technology's true expected payoff.</p></div><span class="small-badge">Payoffs from ${state.trials} paid tests: ${signed(totalPayoff())} pts</span></div>${comparison()}</section>
@@ -670,12 +682,12 @@
     const sortedVals=Object.values(means).slice().sort((a,b)=>b-a);
     return `<div class="overlay" id="modalBackdrop"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="teacher-title">
       <div class="modal-top"><div><div class="eyebrow">Instructor tools</div><h2 id="teacher-title">Configure your class game</h2></div><button type="button" class="close-btn" aria-label="Close" data-action="close-teacher">&times;</button></div>
-      <p class="subtle">The session key fixes the hidden <strong>set</strong> of five true means, so everyone in the class faces the same difficulty. Every student run then draws its own five free starting observations and its own payoff noise, so no two students (and no two replays) see the same numbers. Each results page and CSV carries a <strong>Run ID</strong> that reproduces that student's draws exactly.</p><p class="tiny" style="margin:9px 0 0"><strong>Difficulty:</strong> Five distinct hidden means are drawn for each session and round from the true-payoff setting (currently ${payoffText(parsePayoffSpec(state.draftPayoff))}). A narrower gap and a smaller spread make identification harder. Means are then assigned to A–E. Individual observed payoffs can fall well outside that band because of noise. <strong>Starting trap:</strong> the five free starting observations are conditioned so that the true best technology never shows the highest starting value, so every student begins with a tempting wrong leader. Do not tell students this rule, or they will simply avoid the initial leader.</p><div class="divider"></div>
+      <p class="subtle">The session key fixes the hidden <strong>set</strong> of five true means, so everyone in the class faces the same difficulty. Every student run then draws its own five free starting observations and its own payoff noise, so no two students (and no two replays) see the same numbers. Each results page and CSV carries a <strong>Run ID</strong> that reproduces that student's draws exactly.</p><p class="tiny" style="margin:9px 0 0"><strong>Difficulty:</strong> Five distinct hidden means are drawn for each session and round from the true-payoff setting (currently ${payoffText(parsePayoffSpec(state.draftPayoff))}). A narrower gap and a smaller spread make identification harder. Append <code>/safe3-6</code> to give one technology a known, fixed payoff (no noise, disclosed to students) 3–6 points below the best, which turns a maximize-payoff round into a choice between a sure thing and uncertain alternatives. Means are then assigned to A–E. Individual observed payoffs can fall well outside that band because of noise. <strong>Starting trap:</strong> the five free starting observations are conditioned so that the true best technology never shows the highest starting value, so every student begins with a tempting wrong leader. Do not tell students this rule, or they will simply avoid the initial leader.</p><div class="divider"></div>
       <div class="teacher-third teacher-two">
         <div class="teacher-field"><label for="teacher-trials">TESTS PER GAME (5–60)</label><input id="teacher-trials" class="text-input" type="number" min="5" max="60" step="1" value="${state.draftTrials}"></div>
         <div class="teacher-field"><label for="teacher-gamma">NOISE ±γ (4–40)</label><input id="teacher-gamma" class="text-input" type="number" min="4" max="40" step="0.5" value="${state.draftGamma}"></div>
         <div class="teacher-field"><label for="teacher-round">ROUND (0 = none)</label><input id="teacher-round" class="text-input" type="number" min="0" max="99" step="1" value="${state.draftRound}"></div>
-        <div class="teacher-field"><label for="teacher-payoff">TRUE PAYOFFS: best min-max / gap min-max / spread</label><input id="teacher-payoff" class="text-input" spellcheck="false" placeholder="92-100/2-6/12" value="${esc(state.draftPayoff)}"></div>
+        <div class="teacher-field"><label for="teacher-payoff">TRUE PAYOFFS: best min-max / gap min-max / spread [ /safe min-max ]</label><input id="teacher-payoff" class="text-input" spellcheck="false" placeholder="92-100/2-6/12" value="${esc(state.draftPayoff)}"></div>
         <div class="teacher-field"><label for="teacher-seed">SESSION KEY</label><input id="teacher-seed" class="text-input" maxlength="80" spellcheck="false" value="${esc(state.draftSeed)}"></div>
       </div>
       <div class="teacher-field teacher-wide"><label for="teacher-mode">RANDOMIZATION</label><select id="teacher-mode">${Object.entries(RANDOMIZATION).map(([v,x])=>`<option value="${v}" ${state.draftMode===v?'selected':''}>${x.label}</option>`).join('')}</select><p class="tiny" style="margin:8px 0 0">${state.draftMode==='shared'?'Same five means on the same letters for the whole class. Students can compare notes on letters, so the answer key below applies to everyone.':'Each run also shuffles which letter carries which mean, so a neighbor\'s "C is best" is useless. Noise is always independent per run.'}</p></div>
@@ -747,7 +759,7 @@
     const starting=ARMS.map(a=>`${a}: ${signed(initialReward(a))}`).join(' · ');
     const counts=ARMS.map(a=>`${a}: ${aggregate(state.actions,a).paid} added tests, ${aggregate(state.actions,a).n} total observations, sample mean ${meanFmt(aggregate(state.actions,a).avg)}`).join('\n');
     const f=softmaxFit();
-    return copyText(`Innovation Strategy Lab · Best-arm identification\nStudent: ${nameLabel()}\nSession: ${state.seed}\nRun ID: ${state.runId} (${RANDOMIZATION[state.mode].short})\nNoise: uniform ±${sig()}\nFree initial observations (independent per run): ${starting}\nDiscretionary trials: ${state.trials}\nFinal recommendation: ${state.finalGuess}\nTrue best: ${trueBest()}\nCorrect identification: ${state.finalGuess===trueBest()?'YES':'NO'}\nBinary exploration tau: ${tauFmt(tau())}\nWeighted exploration tau_w: ${tauFmt(weightedTau())} (sum weights ${weightFmt(weightedSum())})\nSoftmax temperature tau_hat (MLE): ${softTauFmt(f)}${softTauCi(f)?' (95% interval '+softTauCi(f)+')':''}\nNon-greedy choices: ${exploratoryCount()}/${state.trials}\nOptions retested: ${coverage()}/5\nIdentification loss: ${gap()}\nObjective: ${OBJECTIVES[state.objective].label}\nCumulative paid-trial realized payoff: ${totalPayoff()}\nExpected payoff of choices (noise removed): ${expectedPayoff()} of a maximum ${maxPayoff()}\n${counts}\nSequence: ${state.actions.map(r=>r.arm).join(' ')}`);
+    return copyText(`Innovation Strategy Lab · Best-arm identification\nStudent: ${nameLabel()}\nSession: ${state.seed}\nRun ID: ${state.runId} (${RANDOMIZATION[state.mode].short})\nNoise: uniform ±${sig()}\nFree initial observations (independent per run): ${starting}\nDiscretionary trials: ${state.trials}\nFinal recommendation: ${state.finalGuess}\nTrue best: ${trueBest()}\nCorrect identification: ${state.finalGuess===trueBest()?'YES':'NO'}\nBinary exploration tau: ${tauFmt(tau())}\nWeighted exploration tau_w: ${tauFmt(weightedTau())} (sum weights ${weightFmt(weightedSum())})\nSoftmax temperature tau_hat (MLE): ${softTauFmt(f)}${softTauCi(f)?' (95% interval '+softTauCi(f)+')':''}\nNon-greedy choices: ${exploratoryCount()}/${state.trials}\nOptions retested: ${coverage()}/5\nIdentification loss: ${gap()}\nObjective: ${OBJECTIVES[state.objective].label}${safeArm()?'\nSafe option: '+safeArm()+' = '+state.means[safeArm()]+' (known, no noise)':''}\nCumulative paid-trial realized payoff: ${totalPayoff()}\nExpected payoff of choices (noise removed): ${expectedPayoff()} of a maximum ${maxPayoff()}\n${counts}\nSequence: ${state.actions.map(r=>r.arm).join(' ')}`);
   }
     document.addEventListener('input',e=>{
     if(e.target.id==='student-name')state.name=e.target.value;
