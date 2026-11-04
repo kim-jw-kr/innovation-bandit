@@ -110,12 +110,13 @@
 
 <div class="wrap">
   <section class="card control" id="controlBar">
-    <div class="section-row" style="margin-bottom:12px"><div><h2>Round control</h2><div class="subtle" id="controlSub">Students on the class link follow these settings live. Open a round to let them start; close it to stop new games. Tries per student lets a student play the round again; every try is recorded and the charts show all tries unless First try only is ticked. Objective changes what students are told to do: identify the best technology, or earn the highest total payoff (the running total is shown and the final pick is still asked). Safe option gives one technology a known, noise-free payoff a set distance below the best, so a payoff round becomes a choice between a sure thing and uncertain alternatives. γ runs from 4 to 40: below 4 the starting trap cannot be produced.</div></div><span class="roundstate" id="roundState"></span></div>
+    <div class="section-row" style="margin-bottom:12px"><div><h2>Round control</h2><div class="subtle" id="controlSub">Students on the class link follow these settings live. Open a round to let them start; close it to stop new games. Tries per student lets a student play the round again; every try is recorded and the charts show all tries unless First try only is ticked. Objective changes what students are told to do: identify the best technology, or earn the highest total payoff (the running total is shown and the final pick is still asked). Safe option gives one technology a known, noise-free payoff a set distance below the best, so a payoff round becomes a choice between a sure thing and uncertain alternatives. Technologies (5–10): with 8, heavy exploration spreads 20 tests too thin and the success curve becomes an inverted U; with 5, random testing still does well. γ runs from 4 to 40: below 4 the starting trap cannot be produced.</div></div><span class="roundstate" id="roundState"></span></div>
     <div class="fields">
       <div class="field"><label for="ctlSeed">Session key</label><input type="text" id="ctlSeed" maxlength="80" style="width:200px" value="SNU-INNOVATION-2026"></div>
       <div class="field"><label for="ctlRound">Round</label><input type="number" id="ctlRound" min="1" max="99" step="1" value="1" style="width:80px"></div>
       <div class="field"><label for="ctlGammaRange">Noise ±γ</label><div class="gamma"><input type="range" id="ctlGammaRange" min="4" max="40" step="0.5" value="12"><input type="number" id="ctlGamma" min="4" max="40" step="0.5" value="12" style="width:80px"></div></div>
       <div class="field"><label for="ctlTrials">Tests per game</label><input type="number" id="ctlTrials" min="5" max="60" step="1" value="20" style="width:90px"></div>
+      <div class="field"><label for="ctlArms" title="5 to 10. With more technologies the same test budget is spread thinner, so heavy exploration finds the best less often and the success curve becomes an inverted U.">Technologies</label><input type="number" id="ctlArms" min="5" max="10" step="1" value="5" style="width:70px"></div>
       <div class="field"><label for="ctlMode">Letters</label><select id="ctlMode"><option value="student">shuffled per student</option><option value="shared">same for everyone</option></select></div>
       <div class="field"><label for="ctlTries">Tries per student</label><select id="ctlTries"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="5">5</option><option value="0" selected>unlimited</option></select></div>
       <div class="field"><label for="ctlObjective">Objective</label><select id="ctlObjective"><option value="identify">identify the best</option><option value="profit">maximize total payoff</option></select></div>
@@ -211,6 +212,7 @@
     <div class="section-row"><div><h2>Student link</h2><div class="subtle" id="linkSub">Students open this link; it locks the settings and hides the instructor tools.</div></div><button class="btn small" id="linkClose">Close</button></div>
     <div class="row"><label class="inline">Session key <input type="text" id="linkSeed" value="SNU-INNOVATION-2026" maxlength="80" style="width:220px"></label></div>
     <div class="row" id="linkManual"><label class="inline">Tests <input type="number" id="linkTrials" min="5" max="60" value="20" style="width:70px"></label>
+      <label class="inline">Technologies <input type="number" id="linkArms" min="5" max="10" value="5" style="width:60px"></label>
       <label class="inline">±γ <input type="number" id="linkGamma" min="4" max="40" step="0.5" value="12" style="width:70px"></label>
       <label class="inline">Round <input type="number" id="linkRound" min="0" max="99" value="0" style="width:70px"></label>
       <label class="inline">Letters <select id="linkMode"><option value="student">shuffled per student</option><option value="shared">shared</option></select></label>
@@ -239,8 +241,8 @@
   const TEAL='#167c73',CORAL='#d9583b',NAVY='#152b31',MUTED='#64747a',LINE='#dce5e3';
   const COLLECTION=CFG.collection||'bandit_results',SETTINGS_DOC='bandit_settings/session';
   // Field order of the student's result code (must match CODE_FIELDS in index.html; new fields are appended).
-  const CODE_FIELDS=['v','sessionKey','runId','name','mode','trials','gamma','attempt','finalPick','trueBest','correct','tauB','tauW','tauHat','tauLow','tauHigh','tauAtLow','tauAtHigh','pseudoR2','loss','nonGreedy','retested','paidPayoff','sequence','initialDraws','trueMeans','round','payoffSpec','objective','bestMean','expPayoff','safeArm','safeValue'];
-  const NUM=new Set(['v','trials','gamma','attempt','tauB','tauW','tauHat','tauLow','tauHigh','pseudoR2','loss','nonGreedy','retested','paidPayoff','round','bestMean','expPayoff','safeValue']);
+  const CODE_FIELDS=['v','sessionKey','runId','name','mode','trials','gamma','attempt','finalPick','trueBest','correct','tauB','tauW','tauHat','tauLow','tauHigh','tauAtLow','tauAtHigh','pseudoR2','loss','nonGreedy','retested','paidPayoff','sequence','initialDraws','trueMeans','round','payoffSpec','objective','bestMean','expPayoff','safeArm','safeValue','arms'];
+  const NUM=new Set(['v','trials','gamma','attempt','tauB','tauW','tauHat','tauLow','tauHigh','pseudoR2','loss','nonGreedy','retested','paidPayoff','round','bestMean','expPayoff','safeValue','arms']);
   const BOOL=new Set(['correct','tauAtLow','tauAtHigh']);
 
   // ---- State ----
@@ -280,7 +282,8 @@
     r.objective=r.objective==='profit'?'profit':'identify';
     r.safeArm=/^[A-E]$/.test(r.safeArm)?r.safeArm:'';r.safeTests=r.safeArm&&r.sequence?[...r.sequence].filter(ch=>ch===r.safeArm).length:null;
     const tm=r.trueMeans?String(r.trueMeans).split(';').map(Number):[];
-    if(tm.length===5&&tm.every(Number.isFinite)){if(r.bestMean===null)r.bestMean=Math.max(...tm);if(r.expPayoff===null&&r.sequence){let s=0,ok=true;for(const ch of r.sequence){const i='ABCDE'.indexOf(ch);if(i<0){ok=false;break;}s+=tm[i];}if(ok)r.expPayoff=s;}}
+    if(r.arms===null||r.arms<5||r.arms>10)r.arms=tm.length>=5&&tm.length<=10?tm.length:5;
+    if(tm.length>=5&&tm.every(Number.isFinite)){if(r.bestMean===null)r.bestMean=Math.max(...tm);if(r.expPayoff===null&&r.sequence){let s=0,ok=true;for(const ch of r.sequence){const i='ABCDEFGHIJ'.indexOf(ch);if(i<0){ok=false;break;}s+=tm[i];}if(ok)r.expPayoff=s;}}
     if(r.tauHat!==null){if(r.tauHat<=TAU_MIN*1.0001)r.tauAtLow=true;if(r.tauHat>=TAU_MAX*0.9999)r.tauAtHigh=true;}
     r.source=source;r.createdAtMs=Number(o.createdAtMs)||Date.now();
     return r;
@@ -370,47 +373,47 @@
   function mode(arr,d){if(!arr.length)return d;const c={};arr.forEach(v=>c[v]=(c[v]||0)+1);return Number(Object.keys(c).sort((a,b)=>c[b]-c[a])[0]);}
   // γ and T that describe the rows in view (most common values), falling back to the round control's settings.
   function viewSetting(rows){
-    const ctl={gamma:clampNum($('ctlGamma').value,4,40,12),T:clampNum($('ctlTrials').value,5,60,20),spec:ctlPayoff()};
+    const ctl={gamma:clampNum($('ctlGamma').value,4,40,12),T:clampNum($('ctlTrials').value,5,60,20),K:Math.round(clampNum($('ctlArms').value,5,10,5)),spec:ctlPayoff()};
     if(!rows.length)return ctl;
     const specs={};rows.forEach(r=>{specs[r.payoffSpec]=(specs[r.payoffSpec]||0)+1;});const specStr=Object.keys(specs).sort((a,b)=>specs[b]-specs[a])[0];
-    return {gamma:mode(rows.map(r=>r.gamma).filter(v=>v!==null),ctl.gamma),T:mode(rows.map(r=>r.trials).filter(v=>v!==null),ctl.T),spec:parsePayoff(specStr)};
+    return {gamma:mode(rows.map(r=>r.gamma).filter(v=>v!==null),ctl.gamma),T:mode(rows.map(r=>r.trials).filter(v=>v!==null),ctl.T),K:mode(rows.map(r=>r.arms).filter(v=>v!==null),ctl.K),spec:parsePayoff(specStr)};
   }
 
   // ---- Reference curve: softmax agents simulated on the game itself (same rules as index.html) ----
   const simCache=new Map();let simPending=null;
-  function simulateCurve(gamma,T,games,spec){
+  function simulateCurve(gamma,T,games,spec,K=5){
     const taus=Array.from({length:20},(_,i)=>TAU_MIN*Math.pow(TAU_MAX/TAU_MIN,i/19));
     return taus.map(tau=>{
       let ok=0,pay=0,expv=0,tbSum=0,twSum=0;
       for(let g=0;g<games;g++){
-        const top=spec.topMin+Math.floor(Math.random()*(spec.topMax-spec.topMin+1)),runner=top-(spec.gapMin+Math.floor(Math.random()*(spec.gapMax-spec.gapMin+1)));let floor=Math.max(0,runner-spec.spread);if(runner-floor<3)floor=runner-3;
+        const top=spec.topMin+Math.floor(Math.random()*(spec.topMax-spec.topMin+1)),runner=top-(spec.gapMin+Math.floor(Math.random()*(spec.gapMax-spec.gapMin+1)));let floor=Math.max(0,runner-spec.spread);if(runner-floor<K-2)floor=runner-(K-2);
         const pool=[];for(let v=floor;v<runner;v++)pool.push(v);
         for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const t=pool[i];pool[i]=pool[j];pool[j]=t;}
         let mu,safeIdx=-1;
-        if(spec.safeMax){let sv=top-(spec.safeMin+Math.floor(Math.random()*(spec.safeMax-spec.safeMin+1)));if(sv===runner)sv=runner-1;const rest=pool.filter(v=>v!==sv);mu=[top,runner,sv,rest[0],rest[1]];safeIdx=2;}
-        else mu=[top,runner,pool[0],pool[1],pool[2]]; // arm 0 is the true best; the agent never sees the order
+        if(spec.safeMax){let sv=top-(spec.safeMin+Math.floor(Math.random()*(spec.safeMax-spec.safeMin+1)));if(sv===runner)sv=runner-1;const rest=pool.filter(v=>v!==sv);mu=[top,runner,sv,...rest.slice(0,K-3)];safeIdx=2;}
+        else mu=[top,runner,...pool.slice(0,K-2)]; // arm 0 is the true best; the agent never sees the order
         const nz=i=>i===safeIdx?0:gamma*(2*Math.random()-1); // the safe option is noise-free
         let tot=null;
-        for(let k=0;k<500;k++){tot=mu.map((m,i)=>Math.round(m+nz(i)));let lead=false;for(let a=1;a<5;a++)if(tot[a]>tot[0])lead=true;if(lead)break;}
-        const cnt=[1,1,1,1,1];let nong=0,wsum=0;
+        for(let k=0;k<500;k++){tot=mu.map((m,i)=>Math.round(m+nz(i)));let lead=false;for(let a=1;a<K;a++)if(tot[a]>tot[0])lead=true;if(lead)break;}
+        const cnt=Array(K).fill(1);let nong=0,wsum=0;
         for(let t=0;t<T;t++){
-          const m=[0,1,2,3,4].map(i=>tot[i]/cnt[i]);const mx=Math.max(...m);
-          const w=m.map(v=>Math.exp((v-mx)/tau));const sum=w[0]+w[1]+w[2]+w[3]+w[4];
-          let u=Math.random()*sum,c=0;for(;c<4;c++){u-=w[c];if(u<=0)break;}
+          const m=tot.map((v,i)=>v/cnt[i]);const mx=Math.max(...m);
+          const w=m.map(v=>Math.exp((v-mx)/tau));const sum=w.reduce((x,y)=>x+y,0);
+          let u=Math.random()*sum,c=0;for(;c<K-1;c++){u-=w[c];if(u<=0)break;}
           const gap=mx-m[c];if(gap>1e-9)nong++;wsum+=Math.min(1,gap/gamma); // the agent's own τb and τw, same definitions as the student page
           const draw=Math.round(mu[c]+nz(c));tot[c]+=draw;cnt[c]++;pay+=draw;expv+=mu[c];
         }
         tbSum+=nong/T;twSum+=wsum/T;
-        let pick=0,bestM=tot[0]/cnt[0];for(let a=1;a<5;a++){const v=tot[a]/cnt[a];if(v>bestM){bestM=v;pick=a;}}
+        let pick=0,bestM=tot[0]/cnt[0];for(let a=1;a<K;a++){const v=tot[a]/cnt[a];if(v>bestM){bestM=v;pick=a;}}
         if(pick===0)ok++;
       }
       return [tau,ok/games,pay/games,expv/games,tbSum/games,twSum/games]; // [τ, P(found best), mean realized payoff, mean expected payoff, mean τb, mean τw]
     });
   }
-  function simFor(gamma,T,spec){
-    spec=spec||ctlPayoff();const key=gamma+'|'+T+'|'+payoffStr(spec);
+  function simFor(gamma,T,spec,K=5){
+    spec=spec||ctlPayoff();const key=gamma+'|'+T+'|'+payoffStr(spec)+'|'+K;
     if(simCache.has(key))return simCache.get(key);
-    if(simPending!==key){simPending=key;setTimeout(()=>{simCache.set(key,simulateCurve(gamma,T,1500,spec));simPending=null;renderAll();},30);}
+    if(simPending!==key){simPending=key;setTimeout(()=>{simCache.set(key,simulateCurve(gamma,T,1500,spec,K));simPending=null;renderAll();},30);}
     return null;
   }
 
@@ -442,7 +445,7 @@
     const withMax=rows.filter(r=>r.bestMean!==null&&r.trials);
     const maxPay=withMax.length?withMax.reduce((s,r)=>s+r.bestMean*r.trials,0)/withMax.length:vs.T*(vs.spec.topMin+vs.spec.topMax)/2;
     ds.push({type:'line',label:'Always the best',order:3,data:[{x:e[0],y:maxPay,_max:true},{x:e[e.length-1],y:maxPay,_max:true}],borderColor:MUTED,borderDash:[2,4],borderWidth:1.5,pointRadius:0,pointHitRadius:6});
-    const sim=measure==='hat'?simFor(vs.gamma,vs.T,vs.spec):null;
+    const sim=measure==='hat'?simFor(vs.gamma,vs.T,vs.spec,vs.K):null;
     if(sim&&sim[0].length>3)ds.push({type:'line',label:'Simulated',order:2,data:sim.map(p=>({x:Math.log10(p[0]),y:payMeasure==='paid'?p[2]:p[3],_s:p[0]})),borderColor:NAVY,borderDash:[6,4],borderWidth:2,pointRadius:0,pointHitRadius:6,tension:0.3});
     $('payNote').textContent=measure==='hat'?'':'The simulated curve is drawn on the τ̂ axis only.';
     profitChart.data.datasets=ds;profitChart.update('none');
@@ -467,7 +470,7 @@
         pointBorderColor:c=>{const r=c.raw&&c.raw._r;return r&&r.runId===highlightId?NAVY:TEAL;},pointBorderWidth:c=>{const r=c.raw&&c.raw._r;return r&&r.runId===highlightId?3:2;}}
     ];
     const vs=viewSetting(rows);
-    const sim=simFor(vs.gamma,vs.T,vs.spec); // also keeps the simulated benchmarks in the summary up to date
+    const sim=simFor(vs.gamma,vs.T,vs.spec,vs.K); // also keeps the simulated benchmarks in the summary up to date
     const showRate=$('rateLine').checked;rateChart.options.scales.y2.display=showRate;
     if(showRate){
       ds.push({type:'line',label:'Share who found the best',order:0,yAxisID:'y2',_rateLine:true,data:bins.filter(b=>b.n).map(b=>({x:b.mid,y:b.ok/b.n,_rate:b})),borderColor:NAVY,borderWidth:2.5,pointRadius:4.5,pointHoverRadius:7,pointBackgroundColor:NAVY,pointBorderColor:'#fff',pointBorderWidth:1.5,tension:0.25});
@@ -499,13 +502,13 @@
     $('kTau').textContent=n?`${mo===null?'–':fmtTau(mo)} · ${mm===null?'–':fmtTau(mm)}`:'–';$('kTauS').textContent=n?'softmax τ̂ in payoff points':'';
     const a=auc(ok.map(r=>tauOf(r)).filter(v=>v!==null),miss.map(r=>tauOf(r)).filter(v=>v!==null));
     $('kAuc').textContent=a===null?'–':pct(a);$('kAucS').textContent=a===null?'needs both outcomes':'chance that a random finder has higher τ than a random misser (50% = unrelated)';
-    const vs=viewSetting(rows);const pts=simCache.get(vs.gamma+'|'+vs.T+'|'+payoffStr(vs.spec));
+    const vs=viewSetting(rows);const pts=simCache.get(vs.gamma+'|'+vs.T+'|'+payoffStr(vs.spec)+'|'+vs.K);
     const simGreedy=pts?pts[0][1]:null,simBest=pts?Math.max(...pts.map(p=>p[1])):null,simRand=pts?pts[pts.length-1][1]:null;
     const greedy=rows.filter(r=>r.tauB===0).length;
     const line=(k,v)=>`<div class="stat"><span>${k}</span><b>${v}</b></div>`;
     $('stats').innerHTML=n?
       line('View',viewRound==='all'?'All rounds':viewRound===0?'No round':'Round '+viewRound)+line('Noise ±γ · tests',`${[...new Set(rows.map(r=>fmtG(r.gamma)))].join(', ')} · ${[...new Set(rows.map(r=>r.trials))].join(', ')}`)+line('True payoffs',[...new Set(rows.map(r=>r.payoffSpec))].join(', '))+line('Games shown',n)+line('Found the best',`${ok.length} (${pct(ok.length/n)})`)+line('Pure greedy (τb = 0)',`${greedy} (${pct(greedy/n)})`)+line('Median non-greedy tests',`${median(rows.map(r=>r.nonGreedy).filter(v=>v!==null))??'–'} of ${vs.T}`)+line('Median technologies retested',`${median(rows.map(r=>r.retested).filter(v=>v!==null))??'–'} / 5`)+line('Median τb · τw',`${median(rows.map(r=>r.tauB))?.toFixed(2)} · ${median(rows.map(r=>r.tauW))?.toFixed(2)}`)+line('Mean identification loss',`${(rows.reduce((s,r)=>s+(r.loss||0),0)/n).toFixed(1)} pts`)+(()=>{const p=rows.filter(r=>r.paidPayoff!==null),q=rows.filter(r=>r.expPayoff!==null&&r.bestMean!==null&&r.trials);const sf=rows.filter(r=>r.safeTests!==null);return (sf.length?line('Mean tests on the safe option',`${(sf.reduce((s,r)=>s+r.safeTests,0)/sf.length).toFixed(1)} of ${vs.T}`):'')+(p.length?line('Mean total payoff',`${Math.round(p.reduce((s,r)=>s+r.paidPayoff,0)/p.length)} pts`):'')+(q.length?line('Mean expected shortfall',`${Math.round(q.reduce((s,r)=>s+r.bestMean*r.trials-r.expPayoff,0)/q.length)} pts`):'');})()
-      +(pts?`<div class="note" style="margin-top:10px"><strong>Simulated benchmarks (±γ ${fmtG(vs.gamma)}, ${vs.T} tests, payoffs ${payoffStr(vs.spec)}):</strong> greedy agent ${pct(simGreedy)} · best fixed-τ agent ${pct(simBest)} · near-random choice ${pct(simRand)}.${pts[0].length>3?` Mean total payoff: greedy ${Math.round(pts[0][2])} · best τ ${Math.round(Math.max(...pts.map(p=>p[2])))} · near-random ${Math.round(pts[pts.length-1][2])}.`:''}</div>`:'')
+      +(pts?`<div class="note" style="margin-top:10px"><strong>Simulated benchmarks (±γ ${fmtG(vs.gamma)}, ${vs.T} tests, ${vs.K} technologies, payoffs ${payoffStr(vs.spec)}):</strong> greedy agent ${pct(simGreedy)} · best fixed-τ agent ${pct(simBest)} · near-random choice ${pct(simRand)}.${pts[0].length>3?` Mean total payoff: greedy ${Math.round(pts[0][2])} · best τ ${Math.round(Math.max(...pts.map(p=>p[2])))} · near-random ${Math.round(pts[pts.length-1][2])}.`:''}</div>`:'')
       :'<p class="note">Open a round and let students play, or import results, to see class statistics.</p>';
   }
 
@@ -520,26 +523,27 @@
     const cfg=settings&&settings.rounds&&settings.rounds[r];
     const gamma=rows.length?mode(rows.map(x=>x.gamma),null):cfg?Number(cfg.gamma):null;
     const T=rows.length?mode(rows.map(x=>x.trials),null):cfg?Number(cfg.trials):null;
+    const K=rows.length?mode(rows.map(x=>x.arms),5):cfg&&cfg.arms?Number(cfg.arms):5;
     let spec=null;if(rows.length){const c={};rows.forEach(x=>{c[x.payoffSpec]=(c[x.payoffSpec]||0)+1;});spec=parsePayoff(Object.keys(c).sort((a,b)=>c[b]-c[a])[0]);}else if(cfg&&cfg.payoffs)spec=normPayoff(cfg.payoffs);
     const objective=rows.length?(rows.filter(x=>x.objective==='profit').length*2>rows.length?'profit':'identify'):cfg&&cfg.objective==='profit'?'profit':'identify';
-    return {rows:dedupe(rows),gamma,T,spec,objective};
+    return {rows:dedupe(rows),gamma,T,K,spec,objective};
   }
   function renderTabs(){
     const rounds=roundsPresent();const box=$('roundTabs');box.innerHTML='';
     if(viewRound!=='all'&&!rounds.includes(viewRound))viewRound='all';
     const mkTab=(key,label,sub)=>{const b=document.createElement('button');b.className='tab'+(viewRound===key?' on':'');b.innerHTML=esc(label)+(sub?`<small>${esc(sub)}</small>`:'');b.addEventListener('click',()=>{viewRound=key;highlightId=null;renderAll();});box.appendChild(b);};
     mkTab('all','All rounds',`${dedupe(sessionRows()).length}`);
-    rounds.forEach(r=>{const i=roundInfo(r);const isCur=settings&&Number(settings.round)===r&&(!$('sessionSel').value||$('sessionSel').value===settings.sessionKey);mkTab(r,r===0?'No round':'Round '+r,`${i.objective==='profit'?'profit · ':''}${i.gamma!==null?'±'+fmtG(i.gamma):''}${i.T?' · '+i.T:''} · ${i.rows.length}${isCur?(settings.open!==false?' · open':' · closed'):''}`);});
+    rounds.forEach(r=>{const i=roundInfo(r);const isCur=settings&&Number(settings.round)===r&&(!$('sessionSel').value||$('sessionSel').value===settings.sessionKey);mkTab(r,r===0?'No round':'Round '+r,`${i.objective==='profit'?'profit · ':''}${i.gamma!==null?'±'+fmtG(i.gamma):''}${i.T?' · '+i.T:''}${i.K&&i.K!==5?' · '+i.K+' tech':''} · ${i.rows.length}${isCur?(settings.open!==false?' · open':' · closed'):''}`);});
     // comparison table
     const card=$('byRoundCard');
     const show=viewRound==='all'&&rounds.length>1;
     card.hidden=!show;
     if(show){
-      const trs=rounds.map(r=>{const i=roundInfo(r),n=i.rows.length,ok=i.rows.filter(x=>x.correct).length,ci=wilson(ok,n);const key=i.gamma!==null&&i.T?i.gamma+'|'+i.T+'|'+payoffStr(i.spec||PAYOFF_DEFAULT):null;const sim=key&&simCache.has(key)?simCache.get(key):null;const simBest=sim?Math.max(...sim.map(p=>p[1])):null,simGreedy=sim?sim[0][1]:null;
+      const trs=rounds.map(r=>{const i=roundInfo(r),n=i.rows.length,ok=i.rows.filter(x=>x.correct).length,ci=wilson(ok,n);const key=i.gamma!==null&&i.T?i.gamma+'|'+i.T+'|'+payoffStr(i.spec||PAYOFF_DEFAULT)+'|'+(i.K||5):null;const sim=key&&simCache.has(key)?simCache.get(key):null;const simBest=sim?Math.max(...sim.map(p=>p[1])):null,simGreedy=sim?sim[0][1]:null;
         const pp=i.rows.filter(x=>x.paidPayoff!==null),qq=i.rows.filter(x=>x.expPayoff!==null&&x.bestMean!==null&&x.trials);const meanPay=pp.length?Math.round(pp.reduce((s,x)=>s+x.paidPayoff,0)/pp.length):null,meanShort=qq.length?Math.round(qq.reduce((s,x)=>s+x.bestMean*x.trials-x.expPayoff,0)/qq.length):null;
-        return `<tr><td><strong>${r===0?'No round':'Round '+r}</strong></td><td>${i.objective==='profit'?'maximize payoff':'identify the best'}</td><td class="num">${i.gamma===null?'–':'±'+fmtG(i.gamma)}</td><td class="num">${i.T??'–'}</td><td class="num">${i.spec?payoffStr(i.spec):'–'}</td><td class="num">${n}</td><td class="num">${n?`<strong>${pct(ok/n)}</strong> <span class="subtle">(${ok}/${n}${ci?', '+pct(ci[0])+'–'+pct(ci[1]):''})</span>`:'–'}</td><td class="num">${n?fmtTauOrDash(median(i.rows.map(x=>x.tauHat).filter(v=>v!==null))):'–'}</td><td class="num">${n?pct(i.rows.filter(x=>x.tauB===0).length/n):'–'}</td><td class="num">${meanPay===null?'–':`<strong>${meanPay}</strong>${meanShort===null?'':` <span class="subtle">(−${meanShort})</span>`}`}</td><td class="num">${sim?`${pct(simGreedy)} / ${pct(simBest)}`:'–'}</td></tr>`;}).join('');
-      $('byRoundTable').innerHTML=`<thead><tr><th>Round</th><th>Objective</th><th>Noise ±γ</th><th>Tests</th><th>True payoffs</th><th>Students</th><th>Found the best</th><th>Median τ̂</th><th>Pure greedy</th><th>Mean payoff (shortfall)</th><th>Sim. greedy / best τ</th></tr></thead><tbody>${trs}</tbody>`;
-      rounds.forEach(r=>{const i=roundInfo(r);if(i.gamma!==null&&i.T)simFor(i.gamma,i.T,i.spec||PAYOFF_DEFAULT);});
+        return `<tr><td><strong>${r===0?'No round':'Round '+r}</strong></td><td>${i.objective==='profit'?'maximize payoff':'identify the best'}</td><td class="num">${i.gamma===null?'–':'±'+fmtG(i.gamma)}</td><td class="num">${i.T??'–'}${i.K&&i.K!==5?' <span class="subtle">· '+i.K+' tech</span>':''}</td><td class="num">${i.spec?payoffStr(i.spec):'–'}</td><td class="num">${n}</td><td class="num">${n?`<strong>${pct(ok/n)}</strong> <span class="subtle">(${ok}/${n}${ci?', '+pct(ci[0])+'–'+pct(ci[1]):''})</span>`:'–'}</td><td class="num">${n?fmtTauOrDash(median(i.rows.map(x=>x.tauHat).filter(v=>v!==null))):'–'}</td><td class="num">${n?pct(i.rows.filter(x=>x.tauB===0).length/n):'–'}</td><td class="num">${meanPay===null?'–':`<strong>${meanPay}</strong>${meanShort===null?'':` <span class="subtle">(−${meanShort})</span>`}`}</td><td class="num">${sim?`${pct(simGreedy)} / ${pct(simBest)}`:'–'}</td></tr>`;}).join('');
+      $('byRoundTable').innerHTML=`<thead><tr><th>Round</th><th>Objective</th><th>Noise ±γ</th><th>Tests · tech.</th><th>True payoffs</th><th>Students</th><th>Found the best</th><th>Median τ̂</th><th>Pure greedy</th><th>Mean payoff (shortfall)</th><th>Sim. greedy / best τ</th></tr></thead><tbody>${trs}</tbody>`;
+      rounds.forEach(r=>{const i=roundInfo(r);if(i.gamma!==null&&i.T)simFor(i.gamma,i.T,i.spec||PAYOFF_DEFAULT,i.K||5);});
     }
   }
   const fmtTauOrDash=v=>v===null?'–':fmtTau(v);
@@ -577,7 +581,7 @@
   }
 
   // ---- Round control (Firestore settings document) ----
-  function ctlDraft(){return {sessionKey:$('ctlSeed').value.trim()||'SNU-INNOVATION-2026',round:Math.round(clampNum($('ctlRound').value,1,99,1)),gamma:Math.round(clampNum($('ctlGamma').value,4,40,12)*10)/10,trials:Math.round(clampNum($('ctlTrials').value,5,60,20)),mode:$('ctlMode').value==='shared'?'shared':'student',maxTries:Math.round(clampNum($('ctlTries').value,0,99,0)),objective:$('ctlObjective').value==='profit'?'profit':'identify',payoffs:ctlPayoff()};}
+  function ctlDraft(){return {sessionKey:$('ctlSeed').value.trim()||'SNU-INNOVATION-2026',round:Math.round(clampNum($('ctlRound').value,1,99,1)),gamma:Math.round(clampNum($('ctlGamma').value,4,40,12)*10)/10,trials:Math.round(clampNum($('ctlTrials').value,5,60,20)),arms:Math.round(clampNum($('ctlArms').value,5,10,5)),mode:$('ctlMode').value==='shared'?'shared':'student',maxTries:Math.round(clampNum($('ctlTries').value,0,99,0)),objective:$('ctlObjective').value==='profit'?'profit':'identify',payoffs:ctlPayoff()};}
   function writeSettings(patch){
     if(!db){toast('Round control needs Firebase (config.js)');return Promise.resolve();}
     patch.updatedAt=firebase.firestore.FieldValue.serverTimestamp();
@@ -585,7 +589,7 @@
   }
   function openRound(){
     const d=ctlDraft();
-    writeSettings({...d,open:true,rounds:{[d.round]:{gamma:d.gamma,trials:d.trials,mode:d.mode,payoffs:d.payoffs,maxTries:d.maxTries,objective:d.objective}}}).then(ok=>{if(ok)toast(`Round ${d.round} opened · ${d.objective==='profit'?'maximize payoff':'identify the best'} · ±γ ${fmtG(d.gamma)} · ${d.trials} tests · ${d.maxTries?d.maxTries+' tries':'unlimited tries'}`);});
+    writeSettings({...d,open:true,rounds:{[d.round]:{gamma:d.gamma,trials:d.trials,arms:d.arms,mode:d.mode,payoffs:d.payoffs,maxTries:d.maxTries,objective:d.objective}}}).then(ok=>{if(ok)toast(`Round ${d.round} opened · ${d.objective==='profit'?'maximize payoff':'identify the best'} · ±γ ${fmtG(d.gamma)} · ${d.trials} tests · ${d.maxTries?d.maxTries+' tries':'unlimited tries'}`);});
   }
   function closeRound(){writeSettings({open:false}).then(ok=>{if(ok)toast('Round closed');});}
   function nextRound(){const d=ctlDraft();const r=Math.min(99,(settings&&settings.round?Number(settings.round):d.round)+1);$('ctlRound').value=r;openRound();}
@@ -593,7 +597,7 @@
   function fillControl(){
     if(!settings)return;
     const active=document.activeElement;const set=(id,v)=>{const el=$(id);if(el!==active&&v!==undefined&&v!==null)el.value=v;};
-    if(!ctlDirty){set('ctlSeed',settings.sessionKey);set('ctlRound',settings.round);set('ctlGamma',settings.gamma);set('ctlGammaRange',settings.gamma);set('ctlTrials',settings.trials);set('ctlMode',settings.mode);set('ctlTries',String(Math.round(Number(settings.maxTries)||0)));set('ctlObjective',settings.objective==='profit'?'profit':'identify');const p=normPayoff(settings.payoffs||PAYOFF_DEFAULT);set('ctlTopMin',p.topMin);set('ctlTopMax',p.topMax);set('ctlGapMin',p.gapMin);set('ctlGapMax',p.gapMax);set('ctlSpread',p.spread);set('ctlSafeMin',p.safeMin);set('ctlSafeMax',p.safeMax);}
+    if(!ctlDirty){set('ctlSeed',settings.sessionKey);set('ctlRound',settings.round);set('ctlGamma',settings.gamma);set('ctlGammaRange',settings.gamma);set('ctlTrials',settings.trials);set('ctlArms',Math.round(clampNum(settings.arms,5,10,5)));set('ctlMode',settings.mode);set('ctlTries',String(Math.round(Number(settings.maxTries)||0)));set('ctlObjective',settings.objective==='profit'?'profit':'identify');const p=normPayoff(settings.payoffs||PAYOFF_DEFAULT);set('ctlTopMin',p.topMin);set('ctlTopMax',p.topMax);set('ctlGapMin',p.gapMin);set('ctlGapMax',p.gapMax);set('ctlSpread',p.spread);set('ctlSafeMin',p.safeMin);set('ctlSafeMax',p.safeMax);}
   }
   function renderControl(){
     $('payoffPreview').textContent=payoffText(ctlPayoff());
@@ -602,7 +606,7 @@
     if(!settings){st.textContent='No round yet';st.className='roundstate closed';return;}
     const open=settings.open!==false;
     const liveN=liveRows.filter(r=>r.sessionKey===settings.sessionKey&&r.round===Number(settings.round)).length;
-    st.textContent=`Round ${settings.round} · ${open?'OPEN':'CLOSED'} · ${settings.objective==='profit'?'MAXIMIZE PAYOFF':'IDENTIFY THE BEST'} · ±γ ${fmtG(Number(settings.gamma))} · ${settings.trials} tests · payoffs ${payoffStr(normPayoff(settings.payoffs||PAYOFF_DEFAULT))} · ${Number(settings.maxTries)>0?settings.maxTries+' tries':'unlimited tries'} · ${liveN} result${liveN===1?'':'s'}`;
+    st.textContent=`Round ${settings.round} · ${open?'OPEN':'CLOSED'} · ${settings.objective==='profit'?'MAXIMIZE PAYOFF':'IDENTIFY THE BEST'} · ±γ ${fmtG(Number(settings.gamma))} · ${settings.trials} tests${Number(settings.arms)>5?' · '+settings.arms+' technologies':''} · payoffs ${payoffStr(normPayoff(settings.payoffs||PAYOFF_DEFAULT))} · ${Number(settings.maxTries)>0?settings.maxTries+' tries':'unlimited tries'} · ${liveN} result${liveN===1?'':'s'}`;
     st.className='roundstate '+(open?'open':'closed');
     $('openBtn').textContent=ctlDirty?'Apply & open round':'Open round';
     $('closeBtn').disabled=!open;
@@ -661,7 +665,7 @@
   function studentLink(){
     const b=baseUrl();if(!b)return '';const u=new URL(b);
     u.searchParams.set('class','1');u.searchParams.set('seed',$('linkSeed').value.trim()||'SNU-INNOVATION-2026');
-    if(!db){u.searchParams.set('rounds',String(Math.round(clampNum($('linkTrials').value,5,60,20))));const g=clampNum($('linkGamma').value,4,40,12);if(g!==12)u.searchParams.set('gamma',String(g));const r=Math.round(clampNum($('linkRound').value,0,99,0));if(r)u.searchParams.set('round',String(r));u.searchParams.set('mode',$('linkMode').value);const ps=payoffStr(parsePayoff($('linkPayoff').value));if(ps!==payoffStr(PAYOFF_DEFAULT))u.searchParams.set('payoff',ps);if($('linkObjective').value==='profit')u.searchParams.set('objective','profit');}
+    if(!db){u.searchParams.set('rounds',String(Math.round(clampNum($('linkTrials').value,5,60,20))));const g=clampNum($('linkGamma').value,4,40,12);if(g!==12)u.searchParams.set('gamma',String(g));const r=Math.round(clampNum($('linkRound').value,0,99,0));if(r)u.searchParams.set('round',String(r));u.searchParams.set('mode',$('linkMode').value);const ps=payoffStr(parsePayoff($('linkPayoff').value));if(ps!==payoffStr(PAYOFF_DEFAULT))u.searchParams.set('payoff',ps);if($('linkObjective').value==='profit')u.searchParams.set('objective','profit');const ka=Math.round(clampNum($('linkArms').value,5,10,5));if(ka!==5)u.searchParams.set('arms',String(ka));}
     return u.href;
   }
   function renderLink(){
@@ -677,7 +681,7 @@
   ['binsInput','firstOnly','rateLine','sessionSel'].forEach(id=>$(id).addEventListener('change',renderAll));
   $('ctlGammaRange').addEventListener('input',()=>{$('ctlGamma').value=$('ctlGammaRange').value;ctlDirty=true;renderControl();});
   $('ctlGamma').addEventListener('input',()=>{$('ctlGammaRange').value=clampNum($('ctlGamma').value,4,40,12);ctlDirty=true;renderControl();});
-  ['ctlSeed','ctlRound','ctlTrials','ctlMode','ctlTries','ctlObjective','ctlTopMin','ctlTopMax','ctlGapMin','ctlGapMax','ctlSpread','ctlSafeMin','ctlSafeMax'].forEach(id=>$(id).addEventListener('input',()=>{ctlDirty=true;renderControl();}));
+  ['ctlSeed','ctlRound','ctlTrials','ctlArms','ctlMode','ctlTries','ctlObjective','ctlTopMin','ctlTopMax','ctlGapMin','ctlGapMax','ctlSpread','ctlSafeMin','ctlSafeMax'].forEach(id=>$(id).addEventListener('input',()=>{ctlDirty=true;renderControl();}));
   $('openBtn').addEventListener('click',()=>{ctlDirty=false;openRound();});
   $('closeBtn').addEventListener('click',closeRound);
   $('nextBtn').addEventListener('click',()=>{ctlDirty=false;nextRound();});
@@ -708,7 +712,7 @@
   });
   $('linkBtn').addEventListener('click',()=>{const s=$('sessionSel').value||(settings&&settings.sessionKey)||$('ctlSeed').value;if(s)$('linkSeed').value=s;$('linkModal').hidden=false;renderLink();});
   $('linkClose').addEventListener('click',()=>{$('linkModal').hidden=true;});
-  ['linkSeed','linkTrials','linkGamma','linkRound','linkMode','linkPayoff','linkObjective'].forEach(id=>$(id).addEventListener('input',renderLink));
+  ['linkSeed','linkTrials','linkArms','linkGamma','linkRound','linkMode','linkPayoff','linkObjective'].forEach(id=>$(id).addEventListener('input',renderLink));
   $('copyLink').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(studentLink());toast('Link copied');}catch(e){toast('Copy failed; select the text manually');}});
   document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.hidden=true;}));
   document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.overlay').forEach(o=>o.hidden=true);});
